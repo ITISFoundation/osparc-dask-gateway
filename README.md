@@ -1,2 +1,1 @@
-# osparc-dask-gateway
-osparc backend for dask gateway server
+# osparc backend for dask gateway server
