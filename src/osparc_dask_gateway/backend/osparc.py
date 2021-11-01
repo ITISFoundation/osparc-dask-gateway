@@ -8,13 +8,16 @@ import shutil
 import signal
 import sys
 import tempfile
+from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
-from traitlets import List, Unicode, Integer
-
+from aiodocker import Docker
+from aiodocker.exceptions import DockerContainerError, DockerError
+from aiodocker.volumes import DockerVolume
 from dask_gateway_server.backends.base import ClusterConfig
-from dask_gateway_server.backends.db_base import DBBackendBase
+from dask_gateway_server.backends.local import LocalBackend
 from dask_gateway_server.traitlets import Type
-
+from traitlets import Integer, List, Unicode
 
 __all__ = ("OsparcClusterConfig", "OsparcBackend", "UnsafeOsparcBackend")
 
@@ -25,41 +28,7 @@ class OsparcClusterConfig(ClusterConfig):
     pass
 
 
-def _signal(pid, sig):
-    """Send given signal to a pid.
-
-    Returns True if the process still exists, False otherwise."""
-    try:
-        os.kill(pid, sig)
-    except OSError as e:
-        if e.errno == errno.ESRCH:
-            return False
-        raise
-    return True
-
-
-def is_running(pid):
-    return _signal(pid, 0)
-
-
-async def wait_is_shutdown(pid, timeout=10):
-    """Wait for a pid to shutdown, using exponential backoff"""
-    pause = 0.1
-    while timeout >= 0:
-        if not _signal(pid, 0):
-            return True
-        await asyncio.sleep(pause)
-        timeout -= pause
-        pause *= 2
-    return False
-
-
-@functools.lru_cache()
-def getpwnam(username):
-    return pwd.getpwnam(username)
-
-
-class OsparcBackend(DBBackendBase):
+class OsparcBackend(LocalBackend):
     """A cluster backend that launches osparc workers.
 
     Requires super-user permissions in order to run processes for the
@@ -73,231 +42,224 @@ class OsparcBackend(DBBackendBase):
         config=True,
     )
 
-    sigint_timeout = Integer(
-        10,
-        help="""
-        Seconds to wait for process to stop after SIGINT.
-
-        If the process has not stopped after this time, a SIGTERM is sent.
-        """,
-        config=True,
-    )
-
-    sigterm_timeout = Integer(
-        5,
-        help="""
-        Seconds to wait for process to stop after SIGTERM.
-
-        If the process has not stopped after this time, a SIGKILL is sent.
-        """,
-        config=True,
-    )
-
-    sigkill_timeout = Integer(
-        5,
-        help="""
-        Seconds to wait for process to stop after SIGKILL.
-
-        If the process has not stopped after this time, a warning is logged and
-        the process is deemed a zombie process.
-        """,
-        config=True,
-    )
-
-    clusters_directory = Unicode(
-        help="""
-        The base directory for cluster working directories.
-
-        A subdirectory will be created for each new cluster which will serve as
-        the working directory for that cluster. On cluster shutdown the
-        subdirectory will be removed.
-
-        If not specified, a temporary directory will be used for each cluster.
-        """,
-        config=True,
-    )
-
-    inherited_environment = List(
-        [
-            "PATH",
-            "PYTHONPATH",
-            "CONDA_ROOT",
-            "CONDA_DEFAULT_ENV",
-            "VIRTUAL_ENV",
-            "LANG",
-            "LC_ALL",
-        ],
-        help="""
-        Whitelist of environment variables for the scheduler and worker
-        processes to inherit from the Dask-Gateway process.
-        """,
-        config=True,
-    )
-
-    default_host = "127.0.0.1"
-
-    def set_file_permissions(self, paths, username):
-        pwnam = getpwnam(username)
-        for p in paths:
-            os.chown(p, pwnam.pw_uid, pwnam.pw_gid)
-
-    def make_preexec_fn(self, cluster):  # pragma: nocover
-        # Borrowed and modified from jupyterhub/spawner.py
-        pwnam = getpwnam(cluster.username)
-        uid = pwnam.pw_uid
-        gid = pwnam.pw_gid
-        groups = [g.gr_gid for g in grp.getgrall() if cluster.username in g.gr_mem]
-        workdir = cluster.state["workdir"]
-
-        def preexec():
-            os.setgid(gid)
-            try:
-                os.setgroups(groups)
-            except Exception as e:
-                print("Failed to set groups %s" % e, file=sys.stderr)
-            os.setuid(uid)
-            os.chdir(workdir)
-
-        return preexec
-
-    def setup_working_directory(self, cluster):  # pragma: nocover
-        if self.clusters_directory:
-            workdir = os.path.join(self.clusters_directory, cluster.name)
-        else:
-            workdir = tempfile.mkdtemp(prefix="dask", suffix=cluster.name)
-        certsdir = self.get_certs_directory(workdir)
-        logsdir = self.get_logs_directory(workdir)
-
-        paths = [workdir, certsdir, logsdir]
-        for path in paths:
-            os.makedirs(path, 0o700, exist_ok=True)
-
-        cert_path, key_path = self._get_tls_paths(workdir)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        for path, data in [(cert_path, cluster.tls_cert), (key_path, cluster.tls_key)]:
-            with os.fdopen(os.open(path, flags, 0o600), "wb") as fil:
-                fil.write(data)
-                paths.extend(path)
-
-        self.set_file_permissions(paths, cluster.username)
-
-        self.log.debug(
-            "Working directory %s for cluster %s created", workdir, cluster.name
-        )
-        return workdir
-
-    def cleanup_working_directory(self, workdir):
-        if os.path.exists(workdir):
-            try:
-                shutil.rmtree(workdir)
-                self.log.debug("Working directory %s removed", workdir)
-            except Exception:  # pragma: nocover
-                self.log.warn("Failed to remove working directory %r", workdir)
-
-    def get_certs_directory(self, workdir):
-        return os.path.join(workdir, ".certs")
-
-    def get_logs_directory(self, workdir):
-        return os.path.join(workdir, "logs")
-
-    def _get_tls_paths(self, workdir):
-        certsdir = self.get_certs_directory(workdir)
-        cert_path = os.path.join(certsdir, "dask.crt")
-        key_path = os.path.join(certsdir, "dask.pem")
-        return cert_path, key_path
-
-    def get_tls_paths(self, cluster):
-        return self._get_tls_paths(cluster.state["workdir"])
-
-    def get_env(self, cluster):
-        env = super().get_env(cluster)
-        for key in self.inherited_environment:
-            if key in os.environ:
-                env[key] = os.environ[key]
-        env["USER"] = cluster.username
-        return env
-
-    async def start_process(self, cluster, cmd, env, name):
-        workdir = cluster.state["workdir"]
-        logsdir = self.get_logs_directory(workdir)
-        log_path = os.path.join(logsdir, name + ".log")
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        fd = None
-        try:
-            fd = os.open(log_path, flags, 0o755)
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                preexec_fn=self.make_preexec_fn(cluster),
-                start_new_session=True,
-                env=env,
-                stdout=fd,
-                stderr=asyncio.subprocess.STDOUT,
-            )
-        finally:
-            if fd is not None:
-                os.close(fd)
-        return proc.pid
-
-    async def stop_process(self, pid):
-        methods = [
-            ("SIGINT", signal.SIGINT, self.sigint_timeout),
-            ("SIGTERM", signal.SIGTERM, self.sigterm_timeout),
-            ("SIGKILL", signal.SIGKILL, self.sigkill_timeout),
-        ]
-
-        for msg, sig, timeout in methods:
-            self.log.debug("Sending %s to process %d", msg, pid)
-            _signal(pid, sig)
-            if await wait_is_shutdown(pid, timeout):
-                return
-
-        if is_running(pid):
-            # all attempts failed, zombie process
-            self.log.warn("Failed to stop process %d", pid)
-
-    async def do_start_cluster(self, cluster):
-        workdir = self.setup_working_directory(cluster)
-        yield {"workdir": workdir}
-
-        pid = await self.start_process(
-            cluster,
-            self.get_scheduler_command(cluster),
-            self.get_scheduler_env(cluster),
-            "scheduler",
-        )
-        yield {"workdir": workdir, "pid": pid}
-
-    async def do_stop_cluster(self, cluster):
-        pid = cluster.state.get("pid")
-        if pid is not None:
-            await self.stop_process(pid)
-
-        workdir = cluster.state.get("workdir")
-        if workdir is not None:
-            self.cleanup_working_directory(workdir)
-
-    def _check_status(self, o):
-        pid = o.state.get("pid")
-        return pid is not None and is_running(pid)
-
-    async def do_check_clusters(self, clusters):
-        return [self._check_status(c) for c in clusters]
+    containers = {}
 
     async def do_start_worker(self, worker):
         cmd = self.get_worker_command(worker.cluster, worker.name)
         env = self.get_worker_env(worker.cluster)
-        pid = await self.start_process(
-            worker.cluster, cmd, env, "worker-%s" % worker.name
+
+        scheduler_url = urlsplit(worker.cluster.scheduler_address)
+        port = scheduler_url.netloc.split(":")[1]
+        netloc = "dask-gateway_dask-gateway-server-osparc" + ":" + port
+        scheduler_address = urlunsplit(scheduler_url._replace(netloc=netloc))
+
+        db_address = f"{self.default_host}:8787"
+        workdir = worker.cluster.state.get("workdir")
+
+        nthreads, memory_limit = self.worker_nthreads_memory_limit_args(worker.cluster)
+
+        env.update(
+            {
+                "DASK_SCHEDULER_ADDRESS": scheduler_address,
+                "DASK_DASHBOARD_ADDRESS": db_address,
+                "DASK_NTHREADS": nthreads,
+                "DASK_MEMORY_LIMIT": memory_limit,
+                "DASK_WORKER_NAME": f"{worker.name}",
+                "GATEWAY_WORK_FOLDER": f"{workdir}",
+                "SIDECAR_COMP_SERVICES_SHARED_FOLDER": f"{workdir}",
+                "SIDECAR_HOST_HOSTNAME_PATH": f"{workdir}",
+                "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": "comp_gateway",
+                "SC_BOOT_MODE": "debug",
+            }
         )
-        yield {"pid": pid}
+
+        docker_image = "local/dask-sidecar:production"
+        workdir = worker.cluster.state.get("workdir")
+
+        container_config = {}
+        try:
+            async with Docker() as docker_client:
+                for folder in [
+                    f"{workdir}/input",
+                    f"{workdir}/output",
+                    f"{workdir}/log",
+                ]:
+                    p = Path(folder)
+                    p.mkdir(parents=True, exist_ok=True)
+
+                volume_attributes = await DockerVolume(
+                    docker_client, "dask-gateway_gateway_data"
+                ).show()
+                vol_mount_point = volume_attributes["Mountpoint"]
+
+                mounts = [
+                    # docker socket needed to use the docker api
+                    {
+                        "Source": "/var/run/docker.sock",
+                        "Target": "/var/run/docker.sock",
+                        "Type": "bind",
+                        "ReadOnly": True,
+                    },
+                    # {
+                    #    # "Source": f"{vol_mount_point}/{worker.cluster.name}/input",
+                    #     "Source": f"{workdir}/input",
+                    #     "Target": "/input",
+                    #     "Type": "bind",
+                    #     "ReadOnly": False,
+                    # },
+                    # {
+                    #     #"Source": f"{vol_mount_point}/{worker.cluster.name}/output",
+                    #     "Source": f"{workdir}/output",
+                    #     "Target": "/output",
+                    #     "Type": "bind",
+                    #     "ReadOnly": False,
+                    # },
+                    # {
+                    #     # "Source": f"{vol_mount_point}/{worker.cluster.name}/log",
+                    #     "Source": f"{workdir}/log",
+                    #     "Target": "/log",
+                    #     "Type": "bind",
+                    #     "ReadOnly": False,
+                    # },
+                    {
+                        # "Source": f"{vol_mount_point}/{worker.cluster.name}",
+                        "Source": f"{workdir}",
+                        "Target": f"{workdir}",
+                        "Type": "bind",
+                        "ReadOnly": False,
+                    },
+                ]
+
+                container_config = {
+                    "Env": env,
+                    "Image": docker_image,
+                    "Init": True,
+                    "Mounts": mounts,
+                }
+
+                network_name = "_dask_net"
+                # try to find the network name (usually named STACKNAME_default)
+                networks = [
+                    x
+                    for x in (await docker_client.networks.list())
+                    if "swarm" in x["Scope"] and network_name in x["Name"]
+                ]
+                if not networks or len(networks) > 1:
+                    self.log.error(
+                        "Swarm network name is not configured, found following networks "
+                        "(if there is more then 1 network, remove the one which has no "
+                        f"containers attached and all is fixed): {networks}"
+                    )
+                worker_network = networks[0]
+                network_name = worker_network["Name"]
+                self.log.info("Attaching workder to network %s", network_name)
+                network_id = worker_network["Id"]
+                service_name = worker.name
+                service_parameters = {
+                    "name": service_name,
+                    "task_template": {
+                        "ContainerSpec": container_config,
+                    },
+                    "networks": [network_id],
+                }
+
+                self.log.info("Starting service %s", service_name)
+
+                service = await docker_client.services.create(**service_parameters)
+                self.log.info("Service %s started", service_name)
+
+                if "ID" not in service:
+                    # error while starting service
+                    self.log.error("OOPS service not created")
+
+                # get the full info from docker
+                service = await docker_client.services.inspect(service["ID"])
+                service_name = service["Spec"]["Name"]
+                self.log.info("Waiting for service %s to start", service_name)
+                while True:
+                    tasks = await docker_client.tasks.list(
+                        filters={"service": service_name}
+                    )
+                    if tasks and len(tasks) == 1:
+                        task = tasks[0]
+                        task_state = task["Status"]["State"]
+                        self.log.info("%s %s", service["ID"], task_state)
+                        if task_state in ("failed", "rejected"):
+                            self.log.error(
+                                "Error while waiting for service with %s",
+                                task["Status"],
+                            )
+                        if task_state in ("running", "complete"):
+                            break
+                    await asyncio.sleep(1)
+
+                self.log.info("Service %s is running", worker.name)
+                yield {"service_id": service["ID"]}
+
+        except DockerContainerError:
+            self.log.exception(
+                "Error while running %s with parameters %s",
+                docker_image,
+                container_config,
+            )
+            raise
+        except DockerError:
+            self.log.exception(
+                "Unknown error while trying to run %s with parameters %s",
+                docker_image,
+                container_config,
+            )
+            raise
+        except asyncio.CancelledError:
+            self.log.warn("Container run was cancelled")
+            raise
+
+    async def _stop_service(self, worker):
+        service_id = worker.state.get("service_id")
+        if service_id is not None:
+            self.log.info("Stopping service %s", service_id)
+            try:
+                async with Docker() as docker_client:
+                    await docker_client.services.delete(service_id)
+
+            except DockerContainerError:
+                self.log.exception(
+                    "Error while stopping service with id %s", service_id
+                )
 
     async def do_stop_worker(self, worker):
-        pid = worker.state.get("pid")
-        if pid is not None:
-            await self.stop_process(pid)
+        await self._stop_service(worker)
+
+    async def _check_service_status(self, worker):
+        service_id = worker.state.get("service_id")
+        if service_id:
+            try:
+                async with Docker() as docker_client:
+                    service = await docker_client.services.inspect(service_id)
+                    if service:
+                        service_name = service["Spec"]["Name"]
+                        tasks = await docker_client.tasks.list(
+                            filters={"service": service_name}
+                        )
+                        if tasks and len(tasks) == 1:
+                            service_state = tasks[0]["Status"]["State"]
+                            self.log.info(
+                                "State of %s  is %s", service_name, service_state
+                            )
+                            return service_state == "running"
+            except DockerContainerError:
+                self.log.exception(
+                    "Error while checking container with id %s", service_id
+                )
+
+        return False
 
     async def do_check_workers(self, workers):
-        return [self._check_status(w) for w in workers]
+        ok = [False] * len(workers)
+        for i, w in enumerate(workers):
+            ok[i] = await self._check_service_status(w)
+
+        return ok
 
 
 class UnsafeOsparcBackend(OsparcBackend):

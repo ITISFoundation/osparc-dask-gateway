@@ -9,7 +9,7 @@
         "type": "python",
         "request": "launch",
         "module": "osparc_dask_gateway",
-        "args": ["-f", "config.py"],
+        "args": ["-f", "config/config.py"],
         "cwd" : "${workspaceFolder}",
         "python": "${workspaceFolder}/.venv/bin/python3",
         "justMyCode": false
