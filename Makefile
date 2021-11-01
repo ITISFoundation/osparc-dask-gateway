@@ -38,6 +38,37 @@ $(VENV_DIR):
 		setuptools \
 		wheel
 
+
+define _docker_compose_build
+export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
+docker buildx bake --file docker-compose-build.yml $(if $(target),$(target),);
+endef
+
+.PHONY: build build-nc rebuild
+
+rebuild: build-nc # alias
+build build-nc: $(VENV_DIR) ## Builds production images and tags them as 'local/osparc-dask-gateway:production'. For single target e.g. 'make target=webserver build'
+ifeq ($(target),)
+	# Building services
+	$(_docker_compose_build)
+else
+	# Building service $(target)
+	$(_docker_compose_build)
+endif
+
+
+PHONY: .init-swarm up-swarm down-swarm
+.init-swarm:
+	# Ensures swarm is initialized
+	$(if $(SWARM_HOSTS),,docker swarm init --advertise-addr=$(get_my_ip))
+
+up-swarm:  .init-swarm ## run as stack in swarm
+	export BUILD_TARGET=production && docker stack deploy --with-registry-auth -c docker-compose-swarm.yml dask-gateway
+
+down-swarm: ## remove stack and leave swarm
+	docker stack rm dask-gateway
+	docker swarm leave -f
+
 .PHONY: tests
 
 tests:
