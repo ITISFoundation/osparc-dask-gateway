@@ -46,7 +46,7 @@ setup(
     extras_require={"test": test_requirements},
     entry_points={
         "console_scripts": [
-            "osparc-dask-gateway=osparc_dask_gateway.app:main"
+            "osparc-dask-gateway=osparc_dask_gateway.app:start"
         ]
     },
 )

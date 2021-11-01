@@ -4,3 +4,4 @@ aiodocker
 dask-gateway
 dask-gateway-server
 docker
+sqlalchemy
