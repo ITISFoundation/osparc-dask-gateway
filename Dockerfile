@@ -111,6 +111,7 @@ WORKDIR /home/scu
 COPY --from=prod-only-deps --chown=scu:scu ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 # copy docker entrypoint and boot scripts
 COPY --chown=scu:scu docker services/osparc-dask-gateway/docker
+COPY --chown=scu:scu config services/osparc-dask-gateway/config
 
 
 # WARNING: This image is used for dask-scheduler and dask-worker.

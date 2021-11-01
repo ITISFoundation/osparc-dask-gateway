@@ -26,4 +26,4 @@ if [ "${SC_BUILD_TARGET}" = "development" ]; then
   pip list | sed 's/^/    /'
 fi
 
-exec dask-gateway-server -f services/dask-gateway-server/docker/config.py
+exec osparc-dask-gateway -f services/osparc-dask-gateway/config/config.py

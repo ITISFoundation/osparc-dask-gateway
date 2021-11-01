@@ -41,7 +41,8 @@ class OsparcBackend(LocalBackend):
         help="The cluster config class to use",
         config=True,
     )
-
+    
+    default_host = "0.0.0.0"
     containers = {}
 
     async def do_start_worker(self, worker):
@@ -152,7 +153,7 @@ class OsparcBackend(LocalBackend):
                     )
                 worker_network = networks[0]
                 network_name = worker_network["Name"]
-                self.log.info("Attaching workder to network %s", network_name)
+                self.log.info("Attaching worker to network %s", network_name)
                 network_id = worker_network["Id"]
                 service_name = worker.name
                 service_parameters = {

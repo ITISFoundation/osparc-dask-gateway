@@ -1,7 +1,7 @@
 version: '3.6' # Don't touch
 services:
   dask-gateway-server-osparc:
-    image: local/dask-gateway-server-osparc:${BUILD_TARGET:?build_target_required}
+    image: local/osparc-dask-gateway:${BUILD_TARGET:?build_target_required}
     ports:
       - "8000:8000"
     volumes:

@@ -17,7 +17,7 @@ from dask_gateway_server.options import Options, Integer, Float
 
 c.Backend.cluster_config_class = 'osparc_dask_gateway.backend.osparc.OsparcClusterConfig'
 c.DaskGateway.backend_class = 'osparc_dask_gateway.backend.osparc.UnsafeOsparcBackend'
-# c.OsparcBackend.clusters_directory = '/mnt/gateway'
+c.OsparcBackend.clusters_directory = '/mnt/gateway'
 # c.OsparcBackend.run_on_host = True
 # c.OsparcBackend.run_in_swarm = False
 # c.OsparcBackend.default_host = '172.16.8.64'
@@ -25,3 +25,5 @@ c.DaskGateway.backend_class = 'osparc_dask_gateway.backend.osparc.UnsafeOsparcBa
 #c.DaskGateway.backend_class = 'dask_gateway_server.backends.local.UnsafeLocalBackend'
 c.Authenticator.password = 'asdf'
 c.DaskGateway.log_level = 'DEBUG'
+# c.Proxy.tls_cert = "/mnt/gateway/.certs/dask.crt"
+# c.Proxy.tls_key = "/mnt/gateway/.certs/dask.pem"
