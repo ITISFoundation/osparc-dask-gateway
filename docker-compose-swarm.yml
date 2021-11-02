@@ -6,7 +6,7 @@ services:
       - "8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /mnt/gateway:/mnt/gateway
+      - gateway_data:/mnt/gateway
     networks:
        - dask_net
     environment:
@@ -21,6 +21,23 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
 
+  volume-sync:
+    image: granlem/volume-sync:latest
+    restart: always
+    volumes:
+      - gateway_data:/volumes/wp-content
+    networks:
+      - volume-sync
+    environment:
+      HOSTNAME: volume-sync
+      SYNC_TYPE: NEXT
+      WAIT_BEFORE_SYNC: 10
+      SYNC_INTERVAL: 10
+      DEBUG: 1
+    deploy:
+      mode: global
+      endpoint_mode: dnsrr
+      
 networks:
   dask_net:
     attachable: true
@@ -29,6 +46,8 @@ networks:
       driver: default
       config:
         - subnet: "172.9.0.0/16"
+  volume-sync:
+    driver: overlay
 
 volumes:
   gateway_data: {}
