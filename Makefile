@@ -9,41 +9,20 @@ makefile_dir 	:= $(patsubst %/,%,$(dir $(makefile_path)))
 
 SHELL 			:= /bin/bash
 
-VENV_DIR 		:= $(makefile_dir)/.venv
-VENV_PYTHON 	:= $(VENV_DIR)/bin/python
+get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=1)
 
+PHONY: .init-swarm up-swarm down-swarm
+.init-swarm:
+	# Ensures swarm is initialized
+	$(if $(SWARM_HOSTS),,docker swarm init --advertise-addr=$(get_my_ip))
 
-.PHONY: devenv .check-venv-active
+up-swarm:  .init-swarm ## run as stack in swarm
+	export BUILD_TARGET=production && docker stack deploy --with-registry-auth -c docker-compose-swarm.yml dask-gateway
 
-.check-venv-active: ## check that the (correct) venv is activated
-	# checking that the virtual environment (${1}) was activated
-	@python3 -c "import sys, pathlib; assert pathlib.Path('${1}').resolve()==pathlib.Path(sys.prefix).resolve()" || (echo "--> To activate venv: source ${1}/bin/activate" && exit 1)
+down-swarm: ## remove stack and leave swarm
+	docker stack rm dask-gateway
+	docker swarm leave -f
 
-devenv: $(VENV_DIR) ## builds development environment
-	# Installing python tools in $<
-	@$</bin/pip --no-cache install \
-		bump2version \
-		pip-tools
-	# Installing repo packages
-	@$</bin/pip install -r $(makefile_dir)/requirements/dev.txt
-	# Installed packages in $<
-	@$</bin/pip list
-
-$(VENV_DIR):
-	# creating virtual environment
-	@python3 -m venv $@
-	# updating package managers
-	@$@/bin/pip --no-cache install --upgrade \
-		pip \
-		setuptools \
-		wheel
-
-.PHONY: tests
-
-tests:
-	# @pytest -vv --failed-first --cov=osparc_dask_gateway $(makefile_dir)/tests/
-	@pytest -vv --failed-first --cov=osparc_dask_gateway $(makefile_dir)/tests/
-	
 
 .PHONY: help
 help: ## help on rule's targets

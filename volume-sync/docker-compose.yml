@@ -1,0 +1,28 @@
+version: '3.3'
+
+services:
+  volume-sync:
+    image: mguidon/${SERVICE_NAME}:production
+    restart: always
+    volumes:
+      - shared:/volumes/sync 
+    networks:
+      - volume-sync
+    environment:
+      DEBUG: 1
+      HOSTNAME: volume-sync
+      SYNC_FOLDER: /volumes/sync
+      SYNC_INTERVAL: 3
+      SYNC_TIMEOUT: 0
+      SYNC_TYPE: ALL
+      WAIT_PERIOD: 1
+    deploy:
+      mode: global
+      endpoint_mode: dnsrr
+      
+volumes:
+  shared:
+
+networks:
+  volume-sync:
+    driver: overlay
