@@ -31,9 +31,9 @@ services:
       - volume-sync
     environment:
       HOSTNAME: volume-sync
-      SYNC_TYPE: NEXT
-      WAIT_BEFORE_SYNC: 10
-      SYNC_INTERVAL: 10
+      SYNC_TYPE: ALL
+      WAIT_BEFORE_SYNC: 1
+      SYNC_INTERVAL: 5
       DEBUG: 1
     deploy:
       mode: global
