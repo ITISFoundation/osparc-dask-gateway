@@ -11,6 +11,7 @@ services:
        - dask_net
     environment:
       - GATEWAY_WORK_FOLDER=/mnt/gateway
+      - SIDECAR_IMAGE=mguidon/dask-sidecar:production
 
   portainer:
     image: portainer/portainer-ce

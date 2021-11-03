@@ -74,7 +74,7 @@ class OsparcBackend(LocalBackend):
             }
         )
 
-        docker_image = "local/dask-sidecar:production"
+        docker_image = os.getenv("SIDECAR_IMAGE", "local/dask-sidecar:production")
         workdir = worker.cluster.state.get("workdir")
 
         container_config = {}
