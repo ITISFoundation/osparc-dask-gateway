@@ -14,6 +14,10 @@ RUN apt-get update && \
     # verify that the binary works
     && gosu nobody true
 
+# deps
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
 # simcore-user uid=8004(scu) gid=8004(scu) groups=8004(scu)
 ENV SC_USER_ID=8004 \
     SC_USER_NAME=scu

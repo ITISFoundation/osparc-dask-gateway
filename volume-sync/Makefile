@@ -8,6 +8,7 @@ makefile_dir 			:= $(patsubst %/,%,$(dir $(makefile_path)))
 .DEFAULT_GOAL 			:= help
 
 SHELL 					:= /bin/bash
+VENV_DIR                := $(makefile_dir)/.venv
 
 export SERVICE_NAME    	:= osparc-volume-sync
 
@@ -21,16 +22,47 @@ export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
 docker buildx bake --file docker-compose-build.yml $(if $(target),$(target),);
 endef
 
+
+.PHONY: devenv
+devenv: $(VENV_DIR) ## builds development environment
+    # Installing python tools in $<
+	@$</bin/pip --no-cache install \
+			bump2version \
+			pip-tools
+	# Installing repo packages
+	@$</bin/pip install -r $(makefile_dir)/requirements.txt
+	# Installed packages in $<
+	@$</bin/pip list
+
+$(VENV_DIR):
+	# creating virtual environment
+	@python3 -m venv $@
+	# updating package managers
+	@$@/bin/pip --no-cache install --upgrade \
+			pip \
+			setuptools \
+			wheel
+
+
 .PHONY: build build-nc rebuild
 
 rebuild: build-nc # alias
 build build-nc: ## Builds production images and tags them as 'local/osparc-dask-gateway:production'. For single target e.g. 'make target=webserver build'
 	$(_docker_compose_build)
 
-.PHONY: up
+.PHONY: up down
 up:
 	docker swarm init || true
-	docker-compose up
+	docker stack deploy -c docker-compose.yml sync-stack
+
+down:
+	docker stack rm sync-stack
+	docker swarm leave -f
+
+test: 
+	export container_id=$(shell docker ps -q) && echo $${container_id} && docker exec -it --user 8004:8004 $${container_id} /bin/bash -c "date >> /volumes/sync/now.dat"
+
+
 
 publish:
 	docker tag local/$(SERVICE_NAME):production mguidon/$(SERVICE_NAME):production

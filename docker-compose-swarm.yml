@@ -30,11 +30,13 @@ services:
     networks:
       - volume-sync
     environment:
+      LOG_LEVEL: DEBUG
       HOSTNAME: volume-sync
+      SYNC_FOLDER: /volumes/sync
+      SYNC_INTERVAL: 3
+      SYNC_TIMEOUT: 0
       SYNC_TYPE: ALL
-      WAIT_BEFORE_SYNC: 1
-      SYNC_INTERVAL: 5
-      DEBUG: 1
+      WAIT_PERIOD: 1
     deploy:
       mode: global
       endpoint_mode: dnsrr

@@ -13,4 +13,8 @@ echo "  Workdir :$(pwd)"
 echo "  env     :$(env)"
 
 
-exec python3 /opt/startup.py
+exec python3 /opt/volume_sync.py --sync-folder="${SYNC_FOLDER}" \
+    --wait-period="${WAIT_PERIOD}" \
+    --sync-interval="${SYNC_INTERVAL}" \
+    --sync-timeout="${SYNC_TIMEOUT}" \
+    --sync-type="${SYNC_TYPE}"

@@ -2,10 +2,11 @@ from dask_gateway import Gateway, BasicAuth
 auth = BasicAuth(username=None, password="asdf")
 gateway = Gateway(address="http://172.16.8.64:8000", auth=auth)
 
-
+clusters = []
 for i in range(8):
     cluster = gateway.new_cluster()
     cluster.scale(1)
+    clusters.append(cluster)
 
 # cluster2 = gateway.new_cluster()
 # cluster2.scale(1)
