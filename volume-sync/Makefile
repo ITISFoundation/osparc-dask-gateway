@@ -2,18 +2,19 @@
 #
 #
 
-makefile_path 	:= $(abspath $(lastword $(MAKEFILE_LIST)))
-makefile_dir 	:= $(patsubst %/,%,$(dir $(makefile_path)))
+makefile_path 			:= $(abspath $(lastword $(MAKEFILE_LIST)))
+makefile_dir 			:= $(patsubst %/,%,$(dir $(makefile_path)))
 
-.DEFAULT_GOAL 	:= help
+.DEFAULT_GOAL 			:= help
 
-SHELL 			:= /bin/bash
+SHELL 					:= /bin/bash
 
+export SERVICE_NAME    	:= osparc-volume-sync
 
-export VCS_URL:=$(shell git config --get remote.origin.url || echo unversioned)
-export VCS_REF:=$(shell git rev-parse --short HEAD || echo unversioned)
-export VCS_STATUS:=$(if $(shell git status -s || echo unversioned),'modified/untracked','clean')
-export BUILD_DATE:=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+export VCS_URL			:= $(shell git config --get remote.origin.url || echo unversioned)
+export VCS_REF			:= $(shell git rev-parse --short HEAD || echo unversioned)
+export VCS_STATUS		:= $(if $(shell git status -s || echo unversioned),'modified/untracked','clean')
+export BUILD_DATE		:= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 define _docker_compose_build
 export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
@@ -30,6 +31,10 @@ build build-nc: ## Builds production images and tags them as 'local/osparc-dask-
 up:
 	docker swarm init || true
 	docker-compose up
+
+publish:
+	docker tag local/$(SERVICE_NAME):production mguidon/$(SERVICE_NAME):production
+	docker push mguidon/$(SERVICE_NAME):production
 
 .PHONY: help
 help: ## help on rule's targets

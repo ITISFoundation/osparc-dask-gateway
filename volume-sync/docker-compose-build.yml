@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   osparc-dask-gateway:
-    image: local/osparc-volume-sync:${BUILD_TARGET:?build_target_required}
+    image: local/${SERVICE_NAME}:${BUILD_TARGET:?build_target_required}
     build:
       context: ./
       dockerfile: Dockerfile

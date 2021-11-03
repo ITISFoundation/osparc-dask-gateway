@@ -23,10 +23,10 @@ services:
       - portainer_data:/data
 
   volume-sync:
-    image: local/osparc-volume-sync:production
+    image: mguidon/osparc-volume-sync:production
     restart: always
     volumes:
-      - gateway_data:/volumes/wp-content
+      - gateway_data:/volumes/sync
     networks:
       - volume-sync
     environment:
@@ -51,5 +51,5 @@ networks:
     driver: overlay
 
 volumes:
-  gateway_data: {}
-  portainer_data: {}
+  gateway_data:
+  portainer_data:

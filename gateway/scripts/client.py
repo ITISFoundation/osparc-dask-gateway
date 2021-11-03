@@ -5,8 +5,8 @@ cluster = gateway.new_cluster()
 
 cluster2 = gateway.new_cluster()
 
-cluster.scale(4)
-cluster2.scale(4)
+cluster.scale(1)
+cluster2.scale(1)
 
 client = cluster.get_client()
 client2 = cluster2.get_client()

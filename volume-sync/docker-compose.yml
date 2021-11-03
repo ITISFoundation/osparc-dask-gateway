@@ -2,7 +2,7 @@ version: '3.3'
 
 services:
   volume-sync:
-    image: local/osparc-volume-sync:production
+    image: local/${SERVICE_NAME}:production
     restart: always
     volumes:
       - shared:/volumes/sync 
