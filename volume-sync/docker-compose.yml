@@ -1,0 +1,26 @@
+version: '3.3'
+
+services:
+  volume-sync:
+    image: local/osparc-volume-sync:production
+    restart: always
+    volumes:
+      - shared:/volumes/sync 
+    networks:
+      - volume-sync
+    environment:
+      HOSTNAME: volume-sync
+      SYNC_TYPE: NEXT
+      WAIT_BEFORE_SYNC: 20
+      SYNC_INTERVAL: 5
+      DEBUG: 1
+    deploy:
+      mode: global
+      endpoint_mode: dnsrr
+      
+volumes:
+  shared:
+
+networks:
+  volume-sync:
+    driver: overlay

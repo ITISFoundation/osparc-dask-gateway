@@ -23,7 +23,7 @@ services:
       - portainer_data:/data
 
   volume-sync:
-    image: granlem/volume-sync:latest
+    image: local/osparc-volume-sync:production
     restart: always
     volumes:
       - gateway_data:/volumes/wp-content
