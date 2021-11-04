@@ -1,14 +1,7 @@
 import asyncio
-import errno
-import functools
-import grp
 import os
-import pwd
-import shutil
-import signal
-import sys
-import tempfile
 from pathlib import Path
+from typing import List
 from urllib.parse import urlsplit, urlunsplit
 
 from aiodocker import Docker
@@ -17,9 +10,14 @@ from aiodocker.volumes import DockerVolume
 from dask_gateway_server.backends.base import ClusterConfig
 from dask_gateway_server.backends.local import LocalBackend
 from dask_gateway_server.traitlets import Type
-from traitlets import Integer, List, Unicode
 
 __all__ = ("OsparcClusterConfig", "OsparcBackend", "UnsafeOsparcBackend")
+
+
+def in_docker():
+    """Returns: True if running in a Docker container, else False"""
+    with open("/proc/1/cgroup", "rt") as ifh:
+        return "docker" in ifh.read()
 
 
 class OsparcClusterConfig(ClusterConfig):
@@ -31,8 +29,7 @@ class OsparcClusterConfig(ClusterConfig):
 class OsparcBackend(LocalBackend):
     """A cluster backend that launches osparc workers.
 
-    Requires super-user permissions in order to run processes for the
-    requesting username.
+    Workers are spawned as services in a docker swarm
     """
 
     cluster_config_class = Type(
@@ -41,17 +38,20 @@ class OsparcBackend(LocalBackend):
         help="The cluster config class to use",
         config=True,
     )
-    
+
     default_host = "0.0.0.0"
-    containers = {}
+
+    containers = {}  # keeping track of created containers
 
     async def do_start_worker(self, worker):
-        cmd = self.get_worker_command(worker.cluster, worker.name)
         env = self.get_worker_env(worker.cluster)
 
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
+
         port = scheduler_url.netloc.split(":")[1]
-        netloc = "dask-gateway_dask-gateway-server-osparc" + ":" + port
+        netloc = (
+            "dask-gateway_dask-gateway-server-osparc" + ":" + port
+        )  # TODO: from env
         scheduler_address = urlunsplit(scheduler_url._replace(netloc=netloc))
 
         db_address = f"{self.default_host}:8787"
@@ -78,6 +78,7 @@ class OsparcBackend(LocalBackend):
         workdir = worker.cluster.state.get("workdir")
 
         container_config = {}
+
         try:
             async with Docker() as docker_client:
                 for folder in [
@@ -89,9 +90,20 @@ class OsparcBackend(LocalBackend):
                     p.mkdir(parents=True, exist_ok=True)
 
                 volume_attributes = await DockerVolume(
-                    docker_client, "dask-gateway_gateway_data"
+                    docker_client, "dask-gateway_gateway_data"  # TODO: via env
                 ).show()
                 vol_mount_point = volume_attributes["Mountpoint"]
+
+                worker_data_source_path = f"{vol_mount_point}/{worker.cluster.name}"
+
+                if not in_docker():
+                    env.pop("PATH")
+                    env.update(
+                        {
+                            "DASK_SCHEDULER_ADDRESS": f"{worker.cluster.scheduler_address}"
+                        }
+                    )
+                    worker_data_source_path = f"{workdir}"
 
                 mounts = [
                     # docker socket needed to use the docker api
@@ -101,9 +113,10 @@ class OsparcBackend(LocalBackend):
                         "Type": "bind",
                         "ReadOnly": True,
                     },
+                    # the workder data is stored in a volume
                     {
-                        "Source": f"{vol_mount_point}/{worker.cluster.name}",
-                        # "Source": f"{workdir}",
+                        # "Source": f"{vol_mount_point}/{worker.cluster.name}",
+                        "Source": f"{worker_data_source_path}",
                         "Target": f"{workdir}",
                         "Type": "bind",
                         "ReadOnly": False,
@@ -117,7 +130,8 @@ class OsparcBackend(LocalBackend):
                     "Mounts": mounts,
                 }
 
-                network_name = "_dask_net"
+                network_name = "_dask_net"  # TODO: From env
+
                 # try to find the network name (usually named STACKNAME_default)
                 networks = [
                     x
@@ -150,7 +164,7 @@ class OsparcBackend(LocalBackend):
 
                 if "ID" not in service:
                     # error while starting service
-                    self.log.error("OOPS service not created")
+                    self.log.error("Worker could not be created")
 
                 # get the full info from docker
                 service = await docker_client.services.inspect(service["ID"])
@@ -174,6 +188,7 @@ class OsparcBackend(LocalBackend):
                     await asyncio.sleep(1)
 
                 self.log.info("Service %s is running", worker.name)
+
                 yield {"service_id": service["ID"]}
 
         except DockerContainerError:
@@ -210,7 +225,7 @@ class OsparcBackend(LocalBackend):
     async def do_stop_worker(self, worker):
         await self._stop_service(worker)
 
-    async def _check_service_status(self, worker):
+    async def _check_service_status(self, worker) -> bool:
         service_id = worker.state.get("service_id")
         if service_id:
             try:
@@ -234,7 +249,7 @@ class OsparcBackend(LocalBackend):
 
         return False
 
-    async def do_check_workers(self, workers):
+    async def do_check_workers(self, workers) -> List[bool]:
         ok = [False] * len(workers)
         for i, w in enumerate(workers):
             ok[i] = await self._check_service_status(w)
@@ -245,8 +260,9 @@ class OsparcBackend(LocalBackend):
 class UnsafeOsparcBackend(OsparcBackend):
     """A version of OsparcBackend that doesn't set permissions.
 
-    FOR TESTING ONLY! This provides no user separations - clusters run with the
-    same level of permission as the gateway.
+    This provides no user separations - clusters run with the
+    same level of permission as the gateway, which is fine,
+    everyone is a scu
     """
 
     def make_preexec_fn(self, cluster):
