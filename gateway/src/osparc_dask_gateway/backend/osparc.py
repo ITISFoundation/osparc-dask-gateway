@@ -40,7 +40,6 @@ class OsparcBackend(LocalBackend):
     )
 
     default_host = "0.0.0.0"
-
     containers = {}  # keeping track of created containers
 
     async def do_start_worker(self, worker):
@@ -70,7 +69,7 @@ class OsparcBackend(LocalBackend):
                 "SIDECAR_COMP_SERVICES_SHARED_FOLDER": f"{workdir}",
                 "SIDECAR_HOST_HOSTNAME_PATH": f"{workdir}",
                 "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": "comp_gateway",
-                "SC_BOOT_MODE": "debug",
+                "SC_BOOT_MODE": "gateway-worker",
             }
         )
 
@@ -168,6 +167,7 @@ class OsparcBackend(LocalBackend):
 
                 # get the full info from docker
                 service = await docker_client.services.inspect(service["ID"])
+                yield {"service_id": service["ID"]}
                 service_name = service["Spec"]["Name"]
                 self.log.info("Waiting for service %s to start", service_name)
                 while True:
@@ -189,7 +189,6 @@ class OsparcBackend(LocalBackend):
 
                 self.log.info("Service %s is running", worker.name)
 
-                yield {"service_id": service["ID"]}
 
         except DockerContainerError:
             self.log.exception(
@@ -206,7 +205,7 @@ class OsparcBackend(LocalBackend):
             )
             raise
         except asyncio.CancelledError:
-            self.log.warn("Container run was cancelled")
+            self.log.warn("Service creation was cancelled")
             raise
 
     async def _stop_service(self, worker):
