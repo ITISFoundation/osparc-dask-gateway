@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=_base.txt _base.in
 #
-aiodocker==0.19.1
+aiodocker==0.21.0
     # via
     #   -c ./_constraints.txt
     #   -r _base.in
@@ -47,11 +47,11 @@ cloudpickle==1.6.0
     #   -c ./_constraints.txt
     #   dask
     #   distributed
-colorlog==6.5.0
+colorlog==6.6.0
     # via dask-gateway-server
 cryptography==35.0.0
     # via dask-gateway-server
-dask==2021.9.1
+dask==2021.10.0
     # via
     #   -c ./_constraints.txt
     #   dask-gateway
@@ -60,13 +60,13 @@ dask-gateway==0.9.0
     # via -r _base.in
 dask-gateway-server==0.9.0
     # via -r _base.in
-distributed==2021.9.1
+distributed==2021.10.0
     # via
     #   -c ./_constraints.txt
     #   dask-gateway
 docker==5.0.3
     # via -r _base.in
-fsspec==2021.9.0
+fsspec==2021.10.1
     # via
     #   -c ./_constraints.txt
     #   dask
@@ -164,12 +164,12 @@ traitlets==5.0.5
     # via
     #   -c ./_constraints.txt
     #   dask-gateway-server
-typing-extensions==3.10.0.2
+typing-extensions==3.10.0.2 ; python_version < "3.9"
     # via
     #   -c ./_constraints.txt
     #   aiodocker
     #   aiohttp
-urllib3==1.26.7
+urllib3==1.26.5
     # via
     #   -c ./_constraints.txt
     #   requests
