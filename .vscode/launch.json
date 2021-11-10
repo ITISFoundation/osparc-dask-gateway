@@ -37,7 +37,7 @@
             "request": "launch",
             "module": "pytest",
             "args": [
-                "${workspaceFolder}/gateway/tests/test_integration.py::test_cluster_start"
+                "${workspaceFolder}/gateway/tests/test_integration.py::test_cluster_start_stop"
             ],
             "python": "${workspaceFolder}/gateway/.venv/bin/python3",
             "justMyCode": false

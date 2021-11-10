@@ -8,6 +8,7 @@ from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError, DockerError
 from aiodocker.volumes import DockerVolume
 from dask_gateway_server.backends.base import ClusterConfig
+from dask_gateway_server.backends.db_base import Cluster, Worker
 from dask_gateway_server.backends.local import LocalBackend
 from dask_gateway_server.traitlets import Type
 
@@ -40,9 +41,10 @@ class OsparcBackend(LocalBackend):
     )
 
     default_host = "0.0.0.0"
+
     containers = {}  # keeping track of created containers
 
-    async def do_start_worker(self, worker):
+    async def do_start_worker(self, worker: Worker):
         env = self.get_worker_env(worker.cluster)
 
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
@@ -69,7 +71,7 @@ class OsparcBackend(LocalBackend):
                 "SIDECAR_COMP_SERVICES_SHARED_FOLDER": f"{workdir}",
                 "SIDECAR_HOST_HOSTNAME_PATH": f"{workdir}",
                 "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": "comp_gateway",
-                "SC_BOOT_MODE": "gateway-worker",
+                "DASK_START_AS_GATEWAY_WORKER": 1,
             }
         )
 
@@ -96,13 +98,15 @@ class OsparcBackend(LocalBackend):
                 worker_data_source_path = f"{vol_mount_point}/{worker.cluster.name}"
 
                 if not in_docker():
+                    worker_data_source_path = f"{workdir}"
                     env.pop("PATH")
                     env.update(
                         {
-                            "DASK_SCHEDULER_ADDRESS": f"{worker.cluster.scheduler_address}"
+                            "DASK_SCHEDULER_ADDRESS": f"{worker.cluster.scheduler_address}",
+                            # "SC_BUILD_TARGET" : "development",
+                            # "DEVEL_MOUNT" : f"{worker_data_source_path}",
                         }
                     )
-                    worker_data_source_path = f"{workdir}"
 
                 mounts = [
                     # docker socket needed to use the docker api
@@ -167,7 +171,6 @@ class OsparcBackend(LocalBackend):
 
                 # get the full info from docker
                 service = await docker_client.services.inspect(service["ID"])
-                yield {"service_id": service["ID"]}
                 service_name = service["Spec"]["Name"]
                 self.log.info("Waiting for service %s to start", service_name)
                 while True:
@@ -189,6 +192,7 @@ class OsparcBackend(LocalBackend):
 
                 self.log.info("Service %s is running", worker.name)
 
+                yield {"service_id": service["ID"]}
 
         except DockerContainerError:
             self.log.exception(
@@ -208,7 +212,7 @@ class OsparcBackend(LocalBackend):
             self.log.warn("Service creation was cancelled")
             raise
 
-    async def _stop_service(self, worker):
+    async def _stop_service(self, worker: Worker):
         service_id = worker.state.get("service_id")
         if service_id is not None:
             self.log.info("Stopping service %s", service_id)
@@ -221,10 +225,10 @@ class OsparcBackend(LocalBackend):
                     "Error while stopping service with id %s", service_id
                 )
 
-    async def do_stop_worker(self, worker):
+    async def do_stop_worker(self, worker: Worker):
         await self._stop_service(worker)
 
-    async def _check_service_status(self, worker) -> bool:
+    async def _check_service_status(self, worker: Worker) -> bool:
         service_id = worker.state.get("service_id")
         if service_id:
             try:
@@ -248,7 +252,7 @@ class OsparcBackend(LocalBackend):
 
         return False
 
-    async def do_check_workers(self, workers) -> List[bool]:
+    async def do_check_workers(self, workers: List[Worker]) -> List[bool]:
         ok = [False] * len(workers)
         for i, w in enumerate(workers):
             ok[i] = await self._check_service_status(w)
@@ -264,7 +268,7 @@ class UnsafeOsparcBackend(OsparcBackend):
     everyone is a scu
     """
 
-    def make_preexec_fn(self, cluster):
+    def make_preexec_fn(self, cluster: Cluster):
         workdir = cluster.state["workdir"]
 
         def preexec():  # pragma: nocover
