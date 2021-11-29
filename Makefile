@@ -23,6 +23,13 @@ down-swarm: ## remove stack and leave swarm
 	docker stack rm dask-gateway
 	docker swarm leave -f
 
+build: ## creates required images
+	cd gateway && make build
+	cd volume-sync && make build
+
+publish: ## publishes required images
+	cd gateway && make publish
+	cd volume-sync && make publish
 
 .PHONY: help
 help: ## help on rule's targets

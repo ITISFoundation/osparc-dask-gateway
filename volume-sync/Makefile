@@ -47,7 +47,7 @@ $(VENV_DIR):
 .PHONY: build build-nc rebuild
 
 rebuild: build-nc # alias
-build build-nc: ## Builds production images and tags them as 'local/osparc-dask-gateway:production'. For single target e.g. 'make target=webserver build'
+build build-nc: ## Builds production images and tags them as 'local/osparc-dask-gateway:production'
 	$(_docker_compose_build)
 
 .PHONY: up down
@@ -61,8 +61,6 @@ down:
 
 test: 
 	export container_id=$(shell docker ps -q) && echo $${container_id} && docker exec -it --user 8004:8004 $${container_id} /bin/bash -c "date >> /volumes/sync/now.dat"
-
-
 
 publish:
 	docker tag local/$(SERVICE_NAME):production mguidon/$(SERVICE_NAME):production
