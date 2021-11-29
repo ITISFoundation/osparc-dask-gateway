@@ -8,13 +8,17 @@ aiodocker==0.21.0
     # via
     #   -c ./_constraints.txt
     #   -r _base.in
-aiohttp==3.7.4.post0
+aiohttp==3.8.1
     # via
     #   -c ./_constraints.txt
     #   aiodocker
     #   dask-gateway
     #   dask-gateway-server
-async-timeout==3.0.1
+aiosignal==1.2.0
+    # via
+    #   -c ./_constraints.txt
+    #   aiohttp
+async-timeout==4.0.1
     # via
     #   -c ./_constraints.txt
     #   aiohttp
@@ -30,13 +34,10 @@ cffi==1.14.5
     # via
     #   -c ./_constraints.txt
     #   cryptography
-chardet==3.0.4
-    # via
-    #   -c ./_constraints.txt
-    #   aiohttp
 charset-normalizer==2.0.6
     # via
     #   -c ./_constraints.txt
+    #   aiohttp
     #   requests
 click==7.1.2
     # via
@@ -49,7 +50,7 @@ cloudpickle==1.6.0
     #   distributed
 colorlog==6.6.0
     # via dask-gateway-server
-cryptography==35.0.0
+cryptography==36.0.0
     # via dask-gateway-server
 dask==2021.10.0
     # via
@@ -66,6 +67,11 @@ distributed==2021.10.0
     #   dask-gateway
 docker==5.0.3
     # via -r _base.in
+frozenlist==1.2.0
+    # via
+    #   -c ./_constraints.txt
+    #   aiohttp
+    #   aiosignal
 fsspec==2021.10.1
     # via
     #   -c ./_constraints.txt
@@ -144,7 +150,7 @@ sortedcontainers==2.4.0
     # via
     #   -c ./_constraints.txt
     #   distributed
-sqlalchemy==1.4.26
+sqlalchemy==1.4.27
     # via -r _base.in
 tblib==1.7.0
     # via
@@ -168,8 +174,8 @@ typing-extensions==3.10.0.2 ; python_version < "3.9"
     # via
     #   -c ./_constraints.txt
     #   aiodocker
-    #   aiohttp
-urllib3==1.26.5
+    #   async-timeout
+urllib3==1.26.7
     # via
     #   -c ./_constraints.txt
     #   requests
