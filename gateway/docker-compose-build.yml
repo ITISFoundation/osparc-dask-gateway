@@ -1,12 +1,12 @@
 version: "3.8"
 services:
   osparc-dask-gateway:
-    image: local/osparc-dask-gateway:${BUILD_TARGET:?build_target_required}
+    image: local/${SERVICE_NAME}:${BUILD_TARGET:?build_target_required}
     build:
       context: ./
       dockerfile: Dockerfile
       cache_from:
-        - local/osparc-dask-gateway:${BUILD_TARGET:?build_target_required}
+        - local/${SERVICE_NAME}:${BUILD_TARGET:?build_target_required}
         - ${DOCKER_REGISTRY:-itisfoundation}/osparc-dask-gateway:master-github-latest
         - ${DOCKER_REGISTRY:-itisfoundation}/osparc-dask-gateway:staging-github-latest
         - ${DOCKER_REGISTRY:-itisfoundation}/osparc-dask-gateway:release-github-latest
