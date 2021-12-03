@@ -72,13 +72,14 @@ RUN pip --no-cache-dir install --upgrade \
   wheel \
   setuptools
 
-RUN ls
+WORKDIR /build
+
 # copy osparc-dask-gateway and dependencies
-COPY --chown=scu:scu . /build/services/osparc-dask-gateway
+COPY --chown=scu:scu requirements/_base.txt .
 
 # install base 3rd party dependencies (NOTE: this speeds up devel mode)
 RUN pip --no-cache-dir install \
-  -r /build/services/osparc-dask-gateway/requirements/_base.txt
+  -r _base.txt
 
 # --------------------------Prod-depends-only stage -------------------
 # This stage is for production only dependencies that get partially wiped out afterwards (final docker image concerns)
@@ -88,8 +89,12 @@ RUN pip --no-cache-dir install \
 #
 FROM build as prod-only-deps
 
-WORKDIR /build/services/osparc-dask-gateway
 ENV SC_BUILD_TARGET=prod-only-deps
+
+COPY --chown=scu:scu . /build/services/gateway
+
+WORKDIR /build/services/gateway
+
 RUN pip --no-cache-dir install -r requirements/prod.txt
 
 # --------------------------Production stage -------------------
@@ -110,8 +115,8 @@ WORKDIR /home/scu
 # bring installed package without build tools
 COPY --from=prod-only-deps --chown=scu:scu ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 # copy docker entrypoint and boot scripts
-COPY --chown=scu:scu docker services/osparc-dask-gateway/docker
-COPY --chown=scu:scu config services/osparc-dask-gateway/config
+COPY --chown=scu:scu docker services/gateway/docker
+COPY --chown=scu:scu config services/gateway/config
 
 
 # WARNING: This image is used for dask-scheduler and dask-worker.
@@ -125,8 +130,8 @@ COPY --chown=scu:scu config services/osparc-dask-gateway/config
 #   --retries=3 \
 #   CMD ["curl", "-Lf", "http://127.0.0.1:8787/health"]
 
-ENTRYPOINT [ "/bin/sh", "services/osparc-dask-gateway/docker/entrypoint.sh" ]
-CMD ["/bin/sh", "services/osparc-dask-gateway/docker/boot.sh"]
+ENTRYPOINT [ "/bin/sh", "services/gateway/docker/entrypoint.sh" ]
+CMD ["/bin/sh", "services/gateway/docker/boot.sh"]
 
 
 # --------------------------Development stage -------------------
@@ -146,5 +151,5 @@ RUN chown -R scu:scu "${VIRTUAL_ENV}"
 
 # NOTE: devel mode does NOT have HEALTHCHECK
 
-ENTRYPOINT [ "/bin/sh", "services/osparc-dask-gateway/docker/entrypoint.sh" ]
-CMD ["/bin/sh", "services/osparc-dask-gateway/docker/boot.sh"]
+ENTRYPOINT [ "/bin/sh", "services/gateway/docker/entrypoint.sh" ]
+CMD ["/bin/sh", "services/gateway/docker/boot.sh"]

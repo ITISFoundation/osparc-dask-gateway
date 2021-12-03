@@ -10,18 +10,21 @@ makefile_dir 	:= $(patsubst %/,%,$(dir $(makefile_path)))
 SHELL 			:= /bin/bash
 
 get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=1)
+SWARM_HOSTS            = $(shell docker node ls --format="{{.Hostname}}" 2>$(if $(IS_WIN),null,/dev/null))
 
 PHONY: .init-swarm up-swarm down-swarm
 .init-swarm:
 	# Ensures swarm is initialized
 	$(if $(SWARM_HOSTS),,docker swarm init --advertise-addr=$(get_my_ip))
 
-up-swarm:  .init-swarm ## run as stack in swarm
+up-prod:  .init-swarm ## run as stack in swarm
 	export BUILD_TARGET=production && docker stack deploy --with-registry-auth -c docker-compose-swarm.yml dask-gateway
 
-down-swarm: ## remove stack and leave swarm
+down: ## remove stack and leave swarm
 	docker stack rm dask-gateway
-	docker swarm leave -f
+
+leave: ## Forces to stop all services, networks, etc by the node leaving the swarm
+	-docker swarm leave --force
 
 build: ## creates required images
 	cd gateway && make build

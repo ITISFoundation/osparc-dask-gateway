@@ -1,5 +1,11 @@
+# osparc-dask-gateway general makefile
 #
+# NOTES:
+# 	- GNU make version 4.2 recommended
+# 	- Use 'make -n *' to dry-run during debugging
+# 	- In windows, only WSL2 is supported
 #
+# by mguidon, sanderegg
 #
 
 makefile_path 	        := $(abspath $(lastword $(MAKEFILE_LIST)))
