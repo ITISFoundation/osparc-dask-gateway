@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 from pathlib import Path
 from typing import List
@@ -14,7 +15,6 @@ from dask_gateway_server.traitlets import Type
 
 __all__ = ("OsparcClusterConfig", "OsparcBackend", "UnsafeOsparcBackend")
 
-
 def in_docker():
     """Returns: True if running in a Docker container, else False"""
     with open("/proc/1/cgroup", "rt") as ifh:
@@ -25,7 +25,6 @@ class OsparcClusterConfig(ClusterConfig):
     """Dask cluster configuration options when running as osparc backend"""
 
     pass
-
 
 class OsparcBackend(LocalBackend):
     """A cluster backend that launches osparc workers.
@@ -45,8 +44,9 @@ class OsparcBackend(LocalBackend):
     containers = {}  # keeping track of created containers
 
     async def do_start_worker(self, worker: Worker):
+        self.log.debug("received call to start worker as %s", f"{worker=}")
         env = self.get_worker_env(worker.cluster)
-
+        
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
 
         port = scheduler_url.netloc.split(":")[1]
@@ -71,13 +71,12 @@ class OsparcBackend(LocalBackend):
                 "SIDECAR_COMP_SERVICES_SHARED_FOLDER": f"{workdir}",
                 "SIDECAR_HOST_HOSTNAME_PATH": f"{workdir}",
                 "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": "comp_gateway",
-                "DASK_START_AS_GATEWAY_WORKER": 1,
             }
         )
 
         docker_image = os.getenv("SIDECAR_IMAGE", "local/dask-sidecar:production")
         workdir = worker.cluster.state.get("workdir")
-
+        self.log.debug("workdir set as %s", f"{workdir=}")
         container_config = {}
 
         try:
@@ -98,6 +97,7 @@ class OsparcBackend(LocalBackend):
                 worker_data_source_path = f"{vol_mount_point}/{worker.cluster.name}"
 
                 if not in_docker():
+                    self.log.warning("gateway running in bare-metal, this is not the intended usage, be careful")
                     worker_data_source_path = f"{workdir}"
                     env.pop("PATH")
                     env.update(
@@ -133,6 +133,8 @@ class OsparcBackend(LocalBackend):
                     "Mounts": mounts,
                 }
 
+                self.log.debug("container configuration: %s", json.dumps(container_config, indent=2))
+
                 network_name = "_dask_net"  # TODO: From env
 
                 # try to find the network name (usually named STACKNAME_default)
@@ -161,7 +163,7 @@ class OsparcBackend(LocalBackend):
                 }
 
                 self.log.info("Starting service %s", service_name)
-
+                self.log.debug("Using parametres %s", json.dumps(service_parameters, indent=2))
                 service = await docker_client.services.create(**service_parameters)
                 self.log.info("Service %s started", service_name)
 
