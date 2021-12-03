@@ -56,10 +56,10 @@ export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
 docker buildx bake --file docker-compose-build.yml $(if $(target),$(target),);
 endef
 
-.PHONY: build build-nc rebuild
+.PHONY: build build-nc rebuild build-devel build-devel-nc
 
 rebuild: build-nc # alias
-build build-nc: $(VENV_DIR) ## Builds production images and tags them as 'local/osparc-dask-gateway:production'. For single target e.g. 'make target=webserver build'
+build build-nc build-devel build-devel-nc: $(VENV_DIR) ## Builds production images and tags them as 'local/osparc-dask-gateway:production'. For single target e.g. 'make target=webserver build'
 ifeq ($(target),)
 	# Building services
 	$(_docker_compose_build)
