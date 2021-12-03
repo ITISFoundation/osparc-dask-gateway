@@ -8,19 +8,19 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - gateway_data:/mnt/gateway
     networks:
-       - dask_net
+      - dask_net
     environment:
       - GATEWAY_WORK_FOLDER=/mnt/gateway
-      - SIDECAR_IMAGE=mguidon/dask-sidecar:production
+      - SIDECAR_IMAGE=local/dask-sidecar:production
 
-  portainer:
-    image: portainer/portainer-ce
-    ports:
-      - "9000:9000"
-    command: -H unix:///var/run/docker.sock
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
+  # portainer:
+  #   image: portainer/portainer-ce
+  #   ports:
+  #     - "9000:9000"
+  #   command: -H unix:///var/run/docker.sock
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - portainer_data:/data
 
   volume-sync:
     image: mguidon/osparc-volume-sync:production
@@ -40,18 +40,18 @@ services:
     deploy:
       mode: global
       endpoint_mode: dnsrr
-      
+
 networks:
-  dask_net:
-    attachable: true
-    internal: false
-    ipam:
-      driver: default
-      config:
-        - subnet: "172.9.0.0/16"
+  dask_net: null
+    # attachable: true
+    # internal: false
+    # ipam:
+    #   driver: default
+    #   config:
+    #     - subnet: "172.9.0.0/16"
   volume-sync:
     driver: overlay
 
 volumes:
-  gateway_data:
-  portainer_data:
+  gateway_data: null
+  portainer_data: null
