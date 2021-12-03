@@ -1,6 +1,7 @@
--r _base.txt
--r _test.txt
+--requirement _base.txt
+--requirement _test.txt
 
+watchdog[watchmedo]
 black
 
--e .
+--editable .

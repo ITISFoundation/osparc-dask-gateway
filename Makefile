@@ -20,7 +20,21 @@ PHONY: .init-swarm up-swarm down-swarm
 	$(if $(SWARM_HOSTS),,docker swarm init --advertise-addr=$(get_my_ip))
 
 up-prod:  .init-swarm ## run as stack in swarm
-	export BUILD_TARGET=production && docker stack deploy --with-registry-auth -c docker-compose-swarm.yml dask-gateway
+	@export BUILD_TARGET=production && \
+	docker stack deploy \
+	--with-registry-auth \
+	--compose-file docker-compose-swarm.yml \
+	dask-gateway
+
+up-devel: .init-swarm ## run as stack in swarm in devel mode
+	# Deploy stack
+	@export BUILD_TARGET=development && \
+	docker stack deploy \
+	--with-registry-auth \
+	--compose-file docker-compose-swarm.yml \
+	--compose-file docker-compose.devel.yml \
+	dask-gateway
+
 
 down: ## remove stack and leave swarm
 	docker stack rm dask-gateway
