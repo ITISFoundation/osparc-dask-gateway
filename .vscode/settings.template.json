@@ -1,0 +1,69 @@
+// This is a template. Clone and replace extension ".template.json" by ".json"
+{
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "eslint.alwaysShowStatus": true,
+  "files.associations": {
+    ".*rc": "ini",
+    ".env*": "ini",
+    "Dockerfile*": "dockerfile",
+    "**/requirements/*.txt": "pip-requirements",
+    "**/requirements/*.in": "pip-requirements",
+    "*Makefile": "makefile",
+    "*.cwl": "yaml"
+  },
+  "files.eol": "\n",
+  "files.exclude": {
+    "**/__pycache__": true
+  },
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/*/**": true
+  },
+  "python.formatting.autopep8Args": [
+    "--max-line-length 140"
+  ],
+  "python.analysis.extraPaths": [
+    "./packages/models-library/src",
+    "./packages/postgres-database/src",
+    "./packages/postgres-database/tests",
+    "./packages/pytest-simcore/src",
+    "./packages/service-integration/src",
+    "./packages/service-library/src",
+    "./packages/simcore-sdk/src",
+    "./services/api-server/src",
+    "./services/api-server/tests/unit",
+    "./services/catalog/src",
+    "./services/director-v2/src",
+    "./services/director/src",
+    "./services/storage/src",
+    "./services/web/server/src",
+    "./services/web/server/tests/unit/with_dbs",
+    "./services/web/server/tests/unit/with_dbs/slow"
+  ],
+  "python.linting.pylintEnabled": true,
+  "python.linting.enabled": true,
+  "[python]": {
+    "editor.detectIndentation": false,
+    "editor.tabSize": 4
+  },
+  "[makefile]": {
+    "editor.insertSpaces": false
+  },
+  "python.testing.pytestEnabled": true,
+  "autoDocstring.docstringFormat": "sphinx",
+  "hadolint.hadolintPath": "${workspaceFolder}/scripts/hadolint.bash",
+  "shellcheck.executablePath": "${workspaceFolder}/scripts/shellcheck.bash",
+  "shellcheck.run": "onSave",
+  "shellcheck.enableQuickFix": true,
+  "python.formatting.provider": "black",
+  "python.sortImports.path": "${workspaceFolder}/.venv/bin/isort",
+  "python.sortImports.args": [
+    "--settings-path=${workspaceFolder}/.isort.cfg"
+  ]
+}
