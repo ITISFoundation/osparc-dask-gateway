@@ -91,9 +91,9 @@ FROM build as prod-only-deps
 
 ENV SC_BUILD_TARGET=prod-only-deps
 
-COPY --chown=scu:scu . /build/services/gateway
+COPY --chown=scu:scu . /build/services/osparc-dask-gateway
 
-WORKDIR /build/services/gateway
+WORKDIR /build/services/osparc-dask-gateway
 
 RUN pip --no-cache-dir install -r requirements/prod.txt
 
@@ -115,8 +115,8 @@ WORKDIR /home/scu
 # bring installed package without build tools
 COPY --from=prod-only-deps --chown=scu:scu ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 # copy docker entrypoint and boot scripts
-COPY --chown=scu:scu docker services/gateway/docker
-COPY --chown=scu:scu config services/gateway/config
+COPY --chown=scu:scu docker services/osparc-dask-gateway/docker
+COPY --chown=scu:scu config services/osparc-dask-gateway/config
 
 
 # WARNING: This image is used for dask-scheduler and dask-worker.
@@ -130,8 +130,8 @@ COPY --chown=scu:scu config services/gateway/config
 #   --retries=3 \
 #   CMD ["curl", "-Lf", "http://127.0.0.1:8787/health"]
 
-ENTRYPOINT [ "/bin/sh", "services/gateway/docker/entrypoint.sh" ]
-CMD ["/bin/sh", "services/gateway/docker/boot.sh"]
+ENTRYPOINT [ "/bin/sh", "services/osparc-dask-gateway/docker/entrypoint.sh" ]
+CMD ["/bin/sh", "services/osparc-dask-gateway/docker/boot.sh"]
 
 
 # --------------------------Development stage -------------------
@@ -151,5 +151,5 @@ RUN chown -R scu:scu "${VIRTUAL_ENV}"
 
 # NOTE: devel mode does NOT have HEALTHCHECK
 
-ENTRYPOINT [ "/bin/sh", "services/gateway/docker/entrypoint.sh" ]
-CMD ["/bin/sh", "services/gateway/docker/boot.sh"]
+ENTRYPOINT [ "/bin/sh", "services/osparc-dask-gateway/docker/entrypoint.sh" ]
+CMD ["/bin/sh", "services/osparc-dask-gateway/docker/boot.sh"]

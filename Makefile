@@ -9,6 +9,8 @@ makefile_dir 	:= $(patsubst %/,%,$(dir $(makefile_path)))
 
 SHELL 			:= /bin/bash
 
+MAKE_C := $(MAKE) --no-print-directory --directory
+
 get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=1)
 SWARM_HOSTS            = $(shell docker node ls --format="{{.Hostname}}" 2>$(if $(IS_WIN),null,/dev/null))
 
@@ -26,13 +28,15 @@ down: ## remove stack and leave swarm
 leave: ## Forces to stop all services, networks, etc by the node leaving the swarm
 	-docker swarm leave --force
 
-build: ## creates required images
-	cd gateway && make build
-	cd volume-sync && make build
+.PHONY: build build-nc rebuild
+build build-devel rebuild: ## creates required images
+	$(MAKE_C) gateway $@
+	$(MAKE_C) volume-sync $@
 
+.PHONY: publish
 publish: ## publishes required images
-	cd gateway && make publish
-	cd volume-sync && make publish
+	$(MAKE_C) gateway $@
+	$(MAKE_C) volume-sync $@
 
 .PHONY: help
 help: ## help on rule's targets
