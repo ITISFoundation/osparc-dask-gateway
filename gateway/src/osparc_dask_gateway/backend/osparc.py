@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-from pathlib import Path
 from typing import List
 from urllib.parse import urlsplit, urlunsplit
 
@@ -20,6 +19,14 @@ def in_docker():
     with open("/proc/1/cgroup", "rt") as ifh:
         return "docker" in ifh.read()
 
+async def _is_task_running(docker_client: Docker, service_name: str, logger) -> bool:
+    tasks = await docker_client.tasks.list(
+        filters={"service": service_name}
+    )
+    tasks_current_state = [task["Status"]["State"] for task in tasks]
+    logger.info("%s current service task states are %s", service_name, f"{tasks_current_state=}")
+    num_running = sum(current == "running" for current in tasks_current_state)
+    return num_running == 1
 
 class OsparcClusterConfig(ClusterConfig):
     """Dask cluster configuration options when running as osparc backend"""
@@ -48,7 +55,7 @@ class OsparcBackend(LocalBackend):
         env = self.get_worker_env(worker.cluster)
         
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
-
+        scheduler_host = scheduler_url.netloc.split(":")[0]
         port = scheduler_url.netloc.split(":")[1]
         netloc = (
             "dask-gateway_dask-gateway-server-osparc" + ":" + port
@@ -62,15 +69,17 @@ class OsparcBackend(LocalBackend):
 
         env.update(
             {
+                "DASK_SCHEDULER_HOST": scheduler_host,
                 "DASK_SCHEDULER_ADDRESS": scheduler_address,
                 "DASK_DASHBOARD_ADDRESS": db_address,
-                "DASK_NTHREADS": nthreads,
-                "DASK_MEMORY_LIMIT": memory_limit,
+                # "DASK_NTHREADS": nthreads,
+                # "DASK_MEMORY_LIMIT": memory_limit,
                 "DASK_WORKER_NAME": f"{worker.name}",
                 "GATEWAY_WORK_FOLDER": f"{workdir}",
                 "SIDECAR_COMP_SERVICES_SHARED_FOLDER": f"{workdir}",
                 "SIDECAR_HOST_HOSTNAME_PATH": f"{workdir}",
                 "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": "comp_gateway",
+                "LOG_LEVEL": "DEBUG"
             }
         )
 
@@ -81,13 +90,13 @@ class OsparcBackend(LocalBackend):
 
         try:
             async with Docker() as docker_client:
-                for folder in [
-                    f"{workdir}/input",
-                    f"{workdir}/output",
-                    f"{workdir}/log",
-                ]:
-                    p = Path(folder)
-                    p.mkdir(parents=True, exist_ok=True)
+                # for folder in [
+                #     f"{workdir}/input",
+                #     f"{workdir}/output",
+                #     f"{workdir}/log",
+                # ]:
+                #     p = Path(folder)
+                #     p.mkdir(parents=True, exist_ok=True)
 
                 volume_attributes = await DockerVolume(
                     docker_client, "dask-gateway_gateway_data"  # TODO: via env
@@ -133,7 +142,6 @@ class OsparcBackend(LocalBackend):
                     "Mounts": mounts,
                 }
 
-                self.log.debug("container configuration: %s", json.dumps(container_config, indent=2))
 
                 network_name = "_dask_net"  # TODO: From env
 
@@ -163,9 +171,9 @@ class OsparcBackend(LocalBackend):
                 }
 
                 self.log.info("Starting service %s", service_name)
-                self.log.debug("Using parametres %s", json.dumps(service_parameters, indent=2))
+                self.log.debug("Using parameters %s", json.dumps(service_parameters, indent=2))
                 service = await docker_client.services.create(**service_parameters)
-                self.log.info("Service %s started", service_name)
+                self.log.info("Service %s started: %s", service_name, f"{service}")
 
                 if "ID" not in service:
                     # error while starting service
@@ -173,26 +181,16 @@ class OsparcBackend(LocalBackend):
 
                 # get the full info from docker
                 service = await docker_client.services.inspect(service["ID"])
+                self.log.debug("Service %s inspection: %s", service_name, f"{json.dumps(service, indent=2)}")
                 service_name = service["Spec"]["Name"]
-                self.log.info("Waiting for service %s to start", service_name)
-                while True:
-                    tasks = await docker_client.tasks.list(
-                        filters={"service": service_name}
-                    )
-                    if tasks and len(tasks) == 1:
-                        task = tasks[0]
-                        task_state = task["Status"]["State"]
-                        self.log.info("%s %s", service["ID"], task_state)
-                        if task_state in ("failed", "rejected"):
-                            self.log.error(
-                                "Error while waiting for service with %s",
-                                task["Status"],
-                            )
-                        if task_state in ("running", "complete"):
-                            break
+                yield {"service_id": service["ID"]}
+                self.log.info("---> Service started, waiting for service %s to start...", service_name)
+
+                while not await _is_task_running(docker_client, service_name, self.log):
+                    yield {"service_id": service["ID"]}
                     await asyncio.sleep(1)
 
-                self.log.info("Service %s is running", worker.name)
+                self.log.info("---> Service %s is started, and has ID %s", worker.name, service["ID"])
 
                 yield {"service_id": service["ID"]}
 
@@ -215,7 +213,8 @@ class OsparcBackend(LocalBackend):
             raise
 
     async def _stop_service(self, worker: Worker):
-        service_id = worker.state.get("service_id")
+        self.log.debug("Calling to stop worker %s", f"{worker=}")
+        service_id = worker.state.get("service_id")        
         if service_id is not None:
             self.log.info("Stopping service %s", service_id)
             try:
@@ -231,30 +230,26 @@ class OsparcBackend(LocalBackend):
         await self._stop_service(worker)
 
     async def _check_service_status(self, worker: Worker) -> bool:
-        service_id = worker.state.get("service_id")
-        if service_id:
+        self.log.debug("checking worker status: %s", f"{worker=}")
+        if service_id:=worker.state.get("service_id"):
+            self.log.debug("checking worker %s status", service_id)
             try:
                 async with Docker() as docker_client:
                     service = await docker_client.services.inspect(service_id)
+                    self.log.debug("checking worker %s associated service", f"{service=}")
                     if service:
                         service_name = service["Spec"]["Name"]
-                        tasks = await docker_client.tasks.list(
-                            filters={"service": service_name}
-                        )
-                        if tasks and len(tasks) == 1:
-                            service_state = tasks[0]["Status"]["State"]
-                            self.log.info(
-                                "State of %s  is %s", service_name, service_state
-                            )
-                            return service_state == "running"
+                        return await _is_task_running(docker_client, service_name, self.log)
+                            
             except DockerContainerError:
                 self.log.exception(
                     "Error while checking container with id %s", service_id
                 )
-
+        self.log.debug("worker status bad")
         return False
 
     async def do_check_workers(self, workers: List[Worker]) -> List[bool]:
+        self.log.debug("--> checking workers statuses: %s", f"{workers=}")
         ok = [False] * len(workers)
         for i, w in enumerate(workers):
             ok[i] = await self._check_service_status(w)
