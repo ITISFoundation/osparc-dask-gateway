@@ -57,9 +57,6 @@ if [ "${SC_BUILD_TARGET}" = "development" ]; then
     fi
 fi
 
-USERNAME=scu
-GROUPNAME=scu
-
 DOCKER_MOUNT=/var/run/docker.sock
 if stat $DOCKER_MOUNT >/dev/null 2>&1; then
     echo "$INFO detected docker socket is mounted, adding user to group..."
@@ -76,7 +73,7 @@ if stat $DOCKER_MOUNT >/dev/null 2>&1; then
 fi
 
 echo "$INFO ensuring write rights on folders ..."
-chown --recursive $USERNAME:"$GROUPNAME" "${GATEWAY_WORK_FOLDER}"
+chown --recursive "$SC_USER_NAME":"$GROUPNAME" "${GATEWAY_WORK_FOLDER}"
 
 echo "$INFO Starting gateway ..."
 echo "  $SC_USER_NAME rights    : $(id "$SC_USER_NAME")"
