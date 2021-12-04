@@ -55,3 +55,25 @@ publish: ## publishes required images
 .PHONY: help
 help: ## help on rule's targets
 	@awk --posix 'BEGIN {FS = ":.*?## "} /^[[:alpha:][:space:]_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+## ENVIRONMENT -------------------------------
+
+.PHONY: devenv
+
+.venv:
+	python3 -m venv $@
+	$@/bin/pip3 --quiet install --upgrade \
+		pip \
+		wheel \
+		setuptools
+
+devenv: .venv ## create a python virtual environment with dev tools (e.g. linters, etc)
+	$</bin/pip3 --quiet install -r requirements/devenv.txt
+	# Installing pre-commit hooks in current .git repo
+	@$</bin/pre-commit install
+	@echo "To activate the venv, execute 'source .venv/bin/activate'"
+
+.vscode/settings.json: .vscode-template/settings.json
+	$(info WARNING: #####  $< is newer than $@ ####)
+	@diff -uN $@ $<
+	@false
