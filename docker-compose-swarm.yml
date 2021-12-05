@@ -11,8 +11,9 @@ services:
       - dask_net
     environment:
       - GATEWAY_WORK_FOLDER=/mnt/gateway
+      - GATEWAY_VOLUME_NAME=dask-gateway_gateway_data
       - SIDECAR_IMAGE=local/dask-sidecar:production
-
+      - SIDECAR_LOGLEVEL=DEBUG
   # portainer:
   #   image: portainer/portainer-ce
   #   ports:
@@ -22,24 +23,24 @@ services:
   #     - /var/run/docker.sock:/var/run/docker.sock
   #     - portainer_data:/data
 
-  volume-sync:
-    image: mguidon/osparc-volume-sync:production
-    restart: always
-    volumes:
-      - gateway_data:/volumes/sync
-    networks:
-      - volume-sync
-    environment:
-      LOG_LEVEL: DEBUG
-      HOSTNAME: volume-sync
-      SYNC_FOLDER: /volumes/sync
-      SYNC_INTERVAL: 3
-      SYNC_TIMEOUT: 0
-      SYNC_TYPE: ALL
-      WAIT_PERIOD: 1
-    deploy:
-      mode: global
-      endpoint_mode: dnsrr
+  # volume-sync:
+  #   image: mguidon/osparc-volume-sync:production
+  #   restart: always
+  #   volumes:
+  #     - gateway_data:/volumes/sync
+  #   networks:
+  #     - volume-sync
+  #   environment:
+  #     LOG_LEVEL: DEBUG
+  #     HOSTNAME: volume-sync
+  #     SYNC_FOLDER: /volumes/sync
+  #     SYNC_INTERVAL: 3
+  #     SYNC_TIMEOUT: 0
+  #     SYNC_TYPE: ALL
+  #     WAIT_PERIOD: 1
+  #   deploy:
+  #     mode: global
+  #     endpoint_mode: dnsrr
 
 networks:
   dask_net: null
