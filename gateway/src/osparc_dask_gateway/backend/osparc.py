@@ -118,7 +118,7 @@ class OsparcBackend(LocalBackend):
                     "Mounts": mounts,
                 }
 
-                network_name = "_dask_net"  # TODO: From env
+                network_name = os.getenv("WORKERS_NETWORK")
 
                 # try to find the network name (usually named STACKNAME_default)
                 networks = [

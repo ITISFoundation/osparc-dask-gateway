@@ -14,6 +14,7 @@ services:
       - GATEWAY_VOLUME_NAME=dask-gateway_gateway_data
       - SIDECAR_IMAGE=local/dask-sidecar:production
       - SIDECAR_LOGLEVEL=DEBUG
+      - WORKERS_NETWORK=dask_net
   # portainer:
   #   image: portainer/portainer-ce
   #   ports:
