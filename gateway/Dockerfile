@@ -10,7 +10,7 @@ RUN set -eux \
   iputils-ping \
   curl \
   gosu \
-  procps \ 
+  procps \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
   # verify that the binary works
@@ -37,11 +37,6 @@ ENV LANG=C.UTF-8 \
   VIRTUAL_ENV=/home/scu/.venv
 
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
-
-ENV SWARM_STACK_NAME="" \
-  SIDECAR_INPUT_FOLDER=/home/scu/input \
-  SIDECAR_OUTPUT_FOLDER=/home/scu/output \
-  SIDECAR_LOG_FOLDER=/home/scu/log
 
 
 EXPOSE 8080
