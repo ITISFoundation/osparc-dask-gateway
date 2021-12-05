@@ -71,19 +71,20 @@ class OsparcBackend(LocalBackend):
 
         nthreads, memory_limit = self.worker_nthreads_memory_limit_args(worker.cluster)
 
+        computational_data_volume_name = os.getenv("GATEWAY_VOLUME_NAME")
+        computational_data_folder_in_sidecar = "/mnt/gateway"
         env.update(
             {
                 "DASK_SCHEDULER_HOST": scheduler_host,
                 "DASK_SCHEDULER_ADDRESS": scheduler_address,
                 "DASK_DASHBOARD_ADDRESS": db_address,
+                "GATEWAY_WORK_FOLDER": f"{workdir}",
                 # "DASK_NTHREADS": nthreads,
                 # "DASK_MEMORY_LIMIT": memory_limit,
                 "DASK_WORKER_NAME": f"{worker.name}",
-                "GATEWAY_WORK_FOLDER": f"{workdir}",
-                "SIDECAR_COMP_SERVICES_SHARED_FOLDER": f"{workdir}",
-                "SIDECAR_HOST_HOSTNAME_PATH": f"{workdir}",
-                "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": "comp_gateway",
-                "LOG_LEVEL": "DEBUG",
+                "SIDECAR_COMP_SERVICES_SHARED_FOLDER": computational_data_folder_in_sidecar,
+                "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": computational_data_volume_name,
+                "LOG_LEVEL": os.getenv("SIDECAR_LOGLEVEL"),
             }
         )
 
@@ -94,35 +95,6 @@ class OsparcBackend(LocalBackend):
 
         try:
             async with Docker() as docker_client:
-                # for folder in [
-                #     f"{workdir}/input",
-                #     f"{workdir}/output",
-                #     f"{workdir}/log",
-                # ]:
-                #     p = Path(folder)
-                #     p.mkdir(parents=True, exist_ok=True)
-
-                volume_attributes = await DockerVolume(
-                    docker_client, "dask-gateway_gateway_data"  # TODO: via env
-                ).show()
-                vol_mount_point = volume_attributes["Mountpoint"]
-
-                worker_data_source_path = f"{vol_mount_point}/{worker.cluster.name}"
-
-                if not in_docker():
-                    self.log.warning(
-                        "gateway running in bare-metal, this is not the intended usage, be careful"
-                    )
-                    worker_data_source_path = f"{workdir}"
-                    env.pop("PATH")
-                    env.update(
-                        {
-                            "DASK_SCHEDULER_ADDRESS": f"{worker.cluster.scheduler_address}",
-                            # "SC_BUILD_TARGET" : "development",
-                            # "DEVEL_MOUNT" : f"{worker_data_source_path}",
-                        }
-                    )
-
                 mounts = [
                     # docker socket needed to use the docker api
                     {
@@ -133,10 +105,9 @@ class OsparcBackend(LocalBackend):
                     },
                     # the workder data is stored in a volume
                     {
-                        # "Source": f"{vol_mount_point}/{worker.cluster.name}",
-                        "Source": f"{worker_data_source_path}",
-                        "Target": f"{workdir}",
-                        "Type": "bind",
+                        "Source": computational_data_volume_name,
+                        "Target": computational_data_folder_in_sidecar,
+                        "Type": "volume",
                         "ReadOnly": False,
                     },
                 ]
@@ -235,6 +206,7 @@ class OsparcBackend(LocalBackend):
             try:
                 async with Docker() as docker_client:
                     await docker_client.services.delete(service_id)
+                self.log.info("service %s stopped", f"{service_id=}")
 
             except DockerContainerError:
                 self.log.exception(
@@ -275,6 +247,7 @@ class OsparcBackend(LocalBackend):
         ok = await asyncio.gather(
             *[self._check_service_status(w) for w in workers], return_exceptions=True
         )
+        self.log.debug("<-- worker status returned: %s", f"{ok=}")
         return ok
 
 
