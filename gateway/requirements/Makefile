@@ -1,19 +1,24 @@
-.PHONY: all check clean help
+# Base Makefile for all requirements/Makefile
+#
+# SEE docs/python-dependencies.md
+#
+REPO_BASE_DIR := $(shell git rev-parse --show-toplevel)
 
-objects = $(wildcard *.in)
+
+.PHONY: touch reqs check clean help
+.DEFAULT_GOAL := help
+
+UPGRADE_OPTION := $(if $(upgrade),--upgrade-package $(upgrade),--upgrade)
+
+
+objects = $(sort $(wildcard *.in))
 outputs := $(objects:.in=.txt)
 
-all: _base.txt $(outputs) ## pip-compiles all requirements/*.in -> requirements/*.txt
+reqs: $(outputs) ## pip-compiles all requirements/*.in -> requirements/*.txt; make reqs upgrade=foo will only upgrade package foo
 
-%.txt: %.in
-	pip-compile --upgrade --build-isolation --output-file $@ $<
+touch:
+	@$(foreach p,${objects},touch ${p};)
 
-_base.txt: _base.in
-
-add-pkgs:  ## Minimal update to package set
-	@make -f ../../Makefile .check-venv-active
-	pip-compile _base.in --output-file _base.txt
-	pip-compile _test.in --output-file _test.txt
 
 check: ## Checks whether pip-compile is installed
 	@which pip-compile > /dev/null
@@ -30,3 +35,19 @@ help: ## this colorful help
 	@echo ""
 	@awk --posix 'BEGIN {FS = ":.*?## "} /^[[:alpha:][:space:]_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
+
+
+# ------------------------------------------------------------------------------------------
+# NOTE: runs above requirememts/ such that comments sync with dependabot's
+# NOTE: adds --strip-extras since compiled reqs (*.txt) freezes the dependencies. This also simplifies
+#       extracting subsets of requiremenst like e.g _dask-distributed.* and _dask-complete.*
+#
+%.txt: %.in
+	cd ..; \
+	pip-compile $(UPGRADE_OPTION) --build-isolation --strip-extras --output-file requirements/$@ requirements/$<
+
+_test.txt: _base.txt
+
+_tools.txt: _tools.in _base.txt _test.txt $(REPO_BASE_DIR)/requirements/devenv.txt
+
+# ------------------------------------------------------------------------------------------
