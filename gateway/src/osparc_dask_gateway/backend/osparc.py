@@ -72,13 +72,12 @@ class OsparcBackend(LocalBackend):
         nthreads, memory_limit = self.worker_nthreads_memory_limit_args(worker.cluster)
 
         computational_data_volume_name = os.getenv("GATEWAY_VOLUME_NAME")
-        computational_data_folder_in_sidecar = "/mnt/gateway"
+        computational_data_folder_in_sidecar = os.getenv("GATEWAY_WORK_FOLDER")
         env.update(
             {
                 "DASK_SCHEDULER_HOST": scheduler_host,
                 "DASK_SCHEDULER_ADDRESS": scheduler_address,
                 "DASK_DASHBOARD_ADDRESS": db_address,
-                "GATEWAY_WORK_FOLDER": f"{workdir}",
                 # "DASK_NTHREADS": nthreads,
                 # "DASK_MEMORY_LIMIT": memory_limit,
                 "DASK_WORKER_NAME": f"{worker.name}",
