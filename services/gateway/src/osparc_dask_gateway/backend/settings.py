@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseSettings, Field
@@ -8,7 +7,7 @@ class AppSettings(BaseSettings):
     GATEWAY_VOLUME_NAME: str = Field(
         ..., description="Named volume as defined on the host machine"
     )
-    GATEWAY_WORK_FOLDER: Path = Field(
+    GATEWAY_WORK_FOLDER: str = Field(
         ...,
         description="Mounted folder in the gateway application corresponding to GATEWAY_VOLUME_NAME",
     )
