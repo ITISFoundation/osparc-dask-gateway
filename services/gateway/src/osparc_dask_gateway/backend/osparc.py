@@ -148,6 +148,7 @@ class OsparcBackend(LocalBackend):
                     "name": service_name,
                     "task_template": {
                         "ContainerSpec": container_config,
+                        "RestartPolicy": {"Condition": "on-failure"},
                     },
                     "networks": [network_id],
                 }
