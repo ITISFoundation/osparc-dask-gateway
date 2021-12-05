@@ -81,6 +81,8 @@ fsspec==2021.10.1
     # via
     #   -c requirements/./_constraints.txt
     #   dask
+greenlet==1.1.2
+    # via sqlalchemy
 heapdict==1.0.1
     # via
     #   -c requirements/./_constraints.txt
@@ -172,6 +174,8 @@ sortedcontainers==2.4.0
     # via
     #   -c requirements/./_constraints.txt
     #   distributed
+sqlalchemy==1.4.27
+    # via -r requirements/_base.in
 tblib==1.7.0
     # via
     #   -c requirements/./_constraints.txt
