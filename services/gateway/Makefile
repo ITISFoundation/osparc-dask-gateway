@@ -8,6 +8,10 @@
 # by mguidon, sanderegg
 #
 
+include ../../scripts/common.Makefile
+include ../../scripts/common-service.Makefile
+
+
 makefile_path 	        := $(abspath $(lastword $(MAKEFILE_LIST)))
 makefile_dir 	        := $(patsubst %/,%,$(dir $(makefile_path)))
 

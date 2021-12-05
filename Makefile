@@ -77,3 +77,41 @@ devenv: .venv ## create a python virtual environment with dev tools (e.g. linter
 	$(info WARNING: #####  $< is newer than $@ ####)
 	@diff -uN $@ $<
 	@false
+
+## CLEAN -------------------------------
+
+.PHONY: clean clean-images clean-venv clean-all clean-more
+
+_git_clean_args := -dx --force --exclude=.vscode --exclude=TODO.md --exclude=.venv --exclude=.python-version --exclude=*keep*
+_running_containers = $(shell docker ps -aq)
+
+.check-clean:
+	@git clean -n $(_git_clean_args)
+	@echo -n "Are you sure? [y/N] " && read ans && [ $${ans:-N} = y ]
+	@echo -n "$(shell whoami), are you REALLY sure? [y/N] " && read ans && [ $${ans:-N} = y ]
+
+clean-venv: devenv ## Purges .venv into original configuration
+	# Cleaning your venv
+	.venv/bin/pip-sync --quiet $(CURDIR)/requirements/devenv.txt
+	@pip list
+
+clean-hooks: ## Uninstalls git pre-commit hooks
+	@-pre-commit uninstall 2> /dev/null || rm .git/hooks/pre-commit
+
+clean: .check-clean ## cleans all unversioned files in project and temp files create by this makefile
+	# Cleaning unversioned
+	@git clean $(_git_clean_args)
+
+clean-more: ## cleans containers and unused volumes
+	# stops and deletes running containers
+	@$(if $(_running_containers), docker rm --force $(_running_containers),)
+	# pruning unused volumes
+	docker volume prune --force
+
+clean-all: clean clean-more clean-images clean-hooks # Deep clean including .venv and produced images
+	-rm -rf .venv
+
+
+.PHONY: reset
+reset: ## restart docker daemon (LINUX ONLY)
+	sudo systemctl restart docker
