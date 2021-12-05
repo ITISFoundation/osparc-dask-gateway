@@ -73,6 +73,7 @@ if stat $DOCKER_MOUNT >/dev/null 2>&1; then
 fi
 
 echo "$INFO ensuring write rights on folders ..."
+mkdir --parents "${GATEWAY_WORK_FOLDER}"
 chown --recursive "$SC_USER_NAME":"$GROUPNAME" "${GATEWAY_WORK_FOLDER}"
 
 echo "$INFO Starting gateway ..."
