@@ -23,7 +23,7 @@ up-prod:  .init-swarm ## run as stack in swarm
 	@export BUILD_TARGET=production && \
 	docker stack deploy \
 	--with-registry-auth \
-	--compose-file docker-compose-swarm.yml \
+	--compose-file services/docker-compose-swarm.yml \
 	dask-gateway
 
 up-devel: .init-swarm ## run as stack in swarm in devel mode
@@ -31,8 +31,8 @@ up-devel: .init-swarm ## run as stack in swarm in devel mode
 	@export BUILD_TARGET=development && \
 	docker stack deploy \
 	--with-registry-auth \
-	--compose-file docker-compose-swarm.yml \
-	--compose-file docker-compose.devel.yml \
+	--compose-file services/docker-compose-swarm.yml \
+	--compose-file services/docker-compose.devel.yml \
 	dask-gateway
 
 
@@ -44,13 +44,13 @@ leave: ## Forces to stop all services, networks, etc by the node leaving the swa
 
 .PHONY: build build-nc rebuild
 build build-devel rebuild: ## creates required images
-	$(MAKE_C) gateway $@
-	$(MAKE_C) volume-sync $@
+	$(MAKE_C) services/gateway $@
+	$(MAKE_C) services/volume-sync $@
 
 .PHONY: publish
 publish: ## publishes required images
-	$(MAKE_C) gateway $@
-	$(MAKE_C) volume-sync $@
+	$(MAKE_C) services/gateway $@
+	$(MAKE_C) services/volume-sync $@
 
 .PHONY: help
 help: ## help on rule's targets

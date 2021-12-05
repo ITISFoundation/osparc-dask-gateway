@@ -26,9 +26,7 @@ AUTHORS = "Manuel Guidon (mguidon), Sylvain Anderegg (sanderegg)"
 DESCRIPTION = "Osparc backend for dask-gateway-server"
 README = (CURRENT_DIR / "README.md").read_text()
 
-PROD_REQUIREMENTS = tuple(
-    read_reqs(CURRENT_DIR / "requirements" / "_base.txt")
-)
+PROD_REQUIREMENTS = tuple(read_reqs(CURRENT_DIR / "requirements" / "_base.txt"))
 
 TEST_REQUIREMENTS = tuple(read_reqs(CURRENT_DIR / "requirements" / "_test.txt"))
 
@@ -53,10 +51,6 @@ if __name__ == "__main__":
         tests_require=TEST_REQUIREMENTS,
         extras_require={"test": TEST_REQUIREMENTS},
         entry_points={
-        "console_scripts": [
-            "osparc-dask-gateway=osparc_dask_gateway.app:start"
-        ]
-    },
+            "console_scripts": ["osparc-dask-gateway=osparc_dask_gateway.app:start"]
+        },
     )
-
-

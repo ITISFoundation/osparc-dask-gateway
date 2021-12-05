@@ -5,7 +5,7 @@ services:
     image: mguidon/${SERVICE_NAME}:production
     restart: always
     volumes:
-      - shared:/volumes/sync 
+      - shared:/volumes/sync
     networks:
       - volume-sync
     environment:
@@ -19,7 +19,7 @@ services:
     deploy:
       mode: global
       endpoint_mode: dnsrr
-      
+
 volumes:
   shared:
 

@@ -73,7 +73,7 @@ endif
 tests:
 	# @pytest -vv --failed-first --cov=osparc_dask_gateway $(makefile_dir)/tests/
 	@pytest -vv --failed-first --cov=osparc_dask_gateway $(makefile_dir)/tests/
-	
+
 publish:
 	docker tag local/$(SERVICE_NAME):production mguidon/$(SERVICE_NAME):production
 	docker push mguidon/$(SERVICE_NAME):production

@@ -59,7 +59,7 @@ down:
 	docker stack rm sync-stack
 	docker swarm leave -f
 
-test: 
+test:
 	export container_id=$(shell docker ps -q) && echo $${container_id} && docker exec -it --user 8004:8004 $${container_id} /bin/bash -c "date >> /volumes/sync/now.dat"
 
 publish:

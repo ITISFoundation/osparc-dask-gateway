@@ -9,8 +9,7 @@ from aiodocker.services import DockerServices
 from dask import base
 from dask_gateway import BasicAuth, Gateway
 from dask_gateway_server.app import DaskGateway
-from osparc_dask_gateway.backend.osparc import (OsparcClusterConfig,
-                                                UnsafeOsparcBackend)
+from osparc_dask_gateway.backend.osparc import OsparcClusterConfig, UnsafeOsparcBackend
 from traitlets.config import Config
 
 PASSWORD = "asdf"

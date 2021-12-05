@@ -30,7 +30,7 @@ RUN adduser \
     --home /home/${SC_USER_NAME} \
     ${SC_USER_NAME}
 
-ENV VOLUME_MOUNTPOINT=/volumes/sync    
+ENV VOLUME_MOUNTPOINT=/volumes/sync
 
 RUN mkdir -p ${VOLUME_MOUNTPOINT}
 
