@@ -12,9 +12,10 @@ services:
     environment:
       - GATEWAY_WORK_FOLDER=/mnt/gateway
       - GATEWAY_VOLUME_NAME=dask-gateway_gateway_data
-      - SIDECAR_IMAGE=local/dask-sidecar:production
-      - SIDECAR_LOGLEVEL=DEBUG
-      - WORKERS_NETWORK=dask_net
+      - GATEWAY_WORKERS_NETWORK=dask_net
+      - GATEWAY_SERVER_NAME=dask-gateway_dask-gateway-server-osparc
+      - COMPUTATIONAL_SIDECAR_IMAGE=local/dask-sidecar:production
+      - COMPUTATIONAL_SIDECAR_LOG_LEVEL=DEBUG
   # portainer:
   #   image: portainer/portainer-ce
   #   ports:

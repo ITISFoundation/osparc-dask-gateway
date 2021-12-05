@@ -12,6 +12,8 @@ from dask_gateway_server.backends.db_base import Cluster, Worker
 from dask_gateway_server.backends.local import LocalBackend
 from dask_gateway_server.traitlets import Type
 
+from .settings import AppSettings
+
 __all__ = ("OsparcClusterConfig", "OsparcBackend", "UnsafeOsparcBackend")
 
 
@@ -54,6 +56,15 @@ class OsparcBackend(LocalBackend):
 
     containers = {}  # keeping track of created containers
 
+    settings: AppSettings = AppSettings()
+
+    async def do_setup(self):
+        await super().do_setup()
+        self.log.info(
+            "Osparc-Dask-Gateway application settings:\n%s",
+            self.settings.json(indent=2),
+        )
+
     async def do_start_worker(self, worker: Worker):
         self.log.debug("received call to start worker as %s", f"{worker=}")
         env = self.get_worker_env(worker.cluster)
@@ -61,9 +72,7 @@ class OsparcBackend(LocalBackend):
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
         scheduler_host = scheduler_url.netloc.split(":")[0]
         port = scheduler_url.netloc.split(":")[1]
-        netloc = (
-            "dask-gateway_dask-gateway-server-osparc" + ":" + port
-        )  # TODO: from env
+        netloc = f"{self.settings.GATEWAY_SERVER_NAME}:{port}"
         scheduler_address = urlunsplit(scheduler_url._replace(netloc=netloc))
 
         db_address = f"{self.default_host}:8787"
@@ -71,8 +80,6 @@ class OsparcBackend(LocalBackend):
 
         nthreads, memory_limit = self.worker_nthreads_memory_limit_args(worker.cluster)
 
-        computational_data_volume_name = os.getenv("GATEWAY_VOLUME_NAME")
-        computational_data_folder_in_sidecar = os.getenv("GATEWAY_WORK_FOLDER")
         env.update(
             {
                 "DASK_SCHEDULER_HOST": scheduler_host,
@@ -81,13 +88,13 @@ class OsparcBackend(LocalBackend):
                 # "DASK_NTHREADS": nthreads,
                 # "DASK_MEMORY_LIMIT": memory_limit,
                 "DASK_WORKER_NAME": f"{worker.name}",
-                "SIDECAR_COMP_SERVICES_SHARED_FOLDER": computational_data_folder_in_sidecar,
-                "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": computational_data_volume_name,
-                "LOG_LEVEL": os.getenv("SIDECAR_LOGLEVEL"),
+                "SIDECAR_COMP_SERVICES_SHARED_FOLDER": self.settings.GATEWAY_WORK_FOLDER,
+                "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": self.settings.GATEWAY_VOLUME_NAME,
+                "LOG_LEVEL": self.settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
             }
         )
 
-        docker_image = os.getenv("SIDECAR_IMAGE", "local/dask-sidecar:production")
+        docker_image = self.settings.COMPUTATIONAL_SIDECAR_IMAGE
         workdir = worker.cluster.state.get("workdir")
         self.log.debug("workdir set as %s", f"{workdir=}")
         container_config = {}
@@ -104,8 +111,8 @@ class OsparcBackend(LocalBackend):
                     },
                     # the workder data is stored in a volume
                     {
-                        "Source": computational_data_volume_name,
-                        "Target": computational_data_folder_in_sidecar,
+                        "Source": self.settings.GATEWAY_VOLUME_NAME,
+                        "Target": self.settings.GATEWAY_WORK_FOLDER,
                         "Type": "volume",
                         "ReadOnly": False,
                     },
@@ -118,7 +125,7 @@ class OsparcBackend(LocalBackend):
                     "Mounts": mounts,
                 }
 
-                network_name = os.getenv("WORKERS_NETWORK")
+                network_name = self.settings.GATEWAY_WORKERS_NETWORK
 
                 # try to find the network name (usually named STACKNAME_default)
                 networks = [
