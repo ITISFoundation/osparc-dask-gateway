@@ -4,5 +4,4 @@ aiodocker
 bokeh
 dask-gateway
 dask-gateway-server
-docker
-sqlalchemy
+pydantic[email,dotenv]
