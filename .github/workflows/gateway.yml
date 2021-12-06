@@ -38,7 +38,7 @@ jobs:
       matrix:
         python: [3.8]
         os: [ubuntu-20.04]
-        docker_buildx: [v0.6.3]
+        docker_buildx: [0.6.3]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -69,7 +69,7 @@ jobs:
       matrix:
         python: [3.8]
         os: [ubuntu-20.04]
-        docker_buildx: [v0.6.3]
+        docker_buildx: [0.6.3]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
