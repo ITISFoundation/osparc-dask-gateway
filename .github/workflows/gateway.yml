@@ -59,9 +59,15 @@ jobs:
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
       - name: install
-        run: make devenv && pushd services/osparc-gateway-server && make install-ci
+        run: |
+          make devenv && \
+          source .venv/bin/activate && \
+          pushd services/osparc-gateway-server && \
+          make install-ci
       - name: test
-        run: pushd services/osparc-gateway-server && make test-unit
+        run: |
+          pushd services/osparc-gateway-server && \
+          make test-unit
 
   build:
     timeout-minutes: 10
@@ -94,4 +100,6 @@ jobs:
       - name: show system version
         run: ./ci/helpers/show_system_versions.bash
       - name: build image
-        run: pushd services/osparc-gateway-server && make build
+        run: |
+          pushd services/osparc-gateway-server && \
+          make build
