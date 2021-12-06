@@ -24,7 +24,9 @@ filelock==3.4.0
 identify==2.4.0
     # via pre-commit
 isort==5.10.1
-    # via -r requirements/../../../requirements/devenv.txt
+    # via
+    #   -c requirements/_test.txt
+    #   -r requirements/../../../requirements/devenv.txt
 mypy-extensions==0.4.3
     # via black
 nodeenv==1.6.0
@@ -37,6 +39,7 @@ pip-tools==6.4.0
     # via -r requirements/../../../requirements/devenv.txt
 platformdirs==2.4.0
     # via
+    #   -c requirements/_test.txt
     #   black
     #   virtualenv
 pre-commit==2.16.0
@@ -64,6 +67,7 @@ tomli==1.2.2
 typing-extensions==3.10.0.2 ; python_version < "3.9"
     # via
     #   -c requirements/_base.txt
+    #   -c requirements/_test.txt
     #   black
 virtualenv==20.10.0
     # via pre-commit

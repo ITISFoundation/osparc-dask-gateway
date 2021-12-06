@@ -1,5 +1,27 @@
---constraint ./_base.txt
+#
+# Specifies dependencies required to run 'services/director-v2/test' both for unit and integration tests!!
+#
+--constraint ../../../requirements/constraints.txt
 
-coverage
+# Adds base AS CONSTRAINT specs, not requirement.
+#  - Resulting _text.txt is a frozen list of EXTRA packages for testing, besides _base.txt
+#
+--constraint _base.txt
+
+
+# testing
 pytest
+pytest-aiohttp  # incompatible with pytest-asyncio. See https://github.com/pytest-dev/pytest-asyncio/issues/76
 pytest-cov
+pytest-mock
+pytest-xdist
+pytest-icdiff
+
+# fixtures
+Faker
+
+# tools
+pylint
+coveralls
+codecov
+ptvsd
