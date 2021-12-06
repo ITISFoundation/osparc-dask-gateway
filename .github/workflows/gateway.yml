@@ -128,7 +128,7 @@ jobs:
         with:
           version: ${{ matrix.docker_buildx }}
           driver: docker
-      - name: inspect docker buildxbuilder
+      - name: inspect docker buildx builder
         run: |
           echo "Name:      ${{ steps.buildx.outputs.name }}"
           echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
