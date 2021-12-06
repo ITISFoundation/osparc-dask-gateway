@@ -6,7 +6,6 @@ from urllib.parse import urlsplit, urlunsplit
 
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError, DockerError
-from aiodocker.volumes import DockerVolume
 from dask_gateway_server.backends.base import ClusterConfig
 from dask_gateway_server.backends.db_base import Cluster, Worker
 from dask_gateway_server.backends.local import LocalBackend
@@ -15,12 +14,6 @@ from dask_gateway_server.traitlets import Type
 from .settings import AppSettings
 
 __all__ = ("OsparcClusterConfig", "OsparcBackend", "UnsafeOsparcBackend")
-
-
-def in_docker():
-    """Returns: True if running in a Docker container, else False"""
-    with open("/proc/1/cgroup", "rt") as ifh:
-        return "docker" in ifh.read()
 
 
 async def _is_task_running(docker_client: Docker, service_name: str, logger) -> bool:
@@ -46,7 +39,7 @@ class OsparcBackend(LocalBackend):
     """
 
     cluster_config_class = Type(
-        "osparc_dask_gateway.backend.osparc.OsparcClusterConfig",
+        "osparc-gateway-server.backend.osparc.OsparcClusterConfig",
         klass="dask_gateway_server.backends.base.ClusterConfig",
         help="The cluster config class to use",
         config=True,
@@ -56,10 +49,11 @@ class OsparcBackend(LocalBackend):
 
     containers = {}  # keeping track of created containers
 
-    settings: AppSettings = AppSettings()
+    settings: AppSettings
 
     async def do_setup(self):
         await super().do_setup()
+        self.settings = AppSettings()
         self.log.info(
             "osparc-gateway-server application settings:\n%s",
             self.settings.json(indent=2),

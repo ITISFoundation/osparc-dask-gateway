@@ -1,7 +1,7 @@
 import re
 import sys
 
-import osparc_dask_gateway.backend.osparc
+import osparc-gateway-server.backend.osparc
 from dask_gateway_server.app import main
 
 

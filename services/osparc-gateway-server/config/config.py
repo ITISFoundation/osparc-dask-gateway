@@ -16,9 +16,9 @@ from dask_gateway_server.options import Float, Integer, Options
 # )
 
 c.Backend.cluster_config_class = (
-    "osparc_dask_gateway.backend.osparc.OsparcClusterConfig"
+    "osparc-gateway-server.backend.osparc.OsparcClusterConfig"
 )
-c.DaskGateway.backend_class = "osparc_dask_gateway.backend.osparc.UnsafeOsparcBackend"
+c.DaskGateway.backend_class = "osparc-gateway-server.backend.osparc.UnsafeOsparcBackend"
 c.OsparcBackend.clusters_directory = "/mnt/gateway"
 # c.OsparcBackend.run_on_host = True
 # c.OsparcBackend.run_in_swarm = False
