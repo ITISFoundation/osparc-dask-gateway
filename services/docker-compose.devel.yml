@@ -6,4 +6,4 @@ services:
       - LOG_LEVEL=debug
       - DEBUG=true
     volumes:
-      - ./gateway:/devel/services/osparc-gateway-server
+      - ./osparc-gateway-server:/devel/services/osparc-gateway-server
