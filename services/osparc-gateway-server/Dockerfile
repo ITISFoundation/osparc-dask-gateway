@@ -56,6 +56,7 @@ ENV SC_BUILD_TARGET=build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
+  git \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
