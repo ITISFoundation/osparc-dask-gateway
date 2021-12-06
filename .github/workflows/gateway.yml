@@ -38,7 +38,6 @@ jobs:
       matrix:
         python: [3.8]
         os: [ubuntu-20.04]
-        docker_buildx: [0.7.0]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -66,8 +65,45 @@ jobs:
           make install-ci
       - name: test
         run: |
+          source .venv/bin/activate && \
           pushd services/osparc-gateway-server && \
-          make test-unit
+          make test-ci-unit
+  integration-test:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python: [3.8]
+        os: [ubuntu-20.04]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: show system version
+        run: ./ci/helpers/show_system_versions.bash
+      - uses: actions/cache@v2
+        name: getting cached data
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-osparc-gateway-server-${{ hashFiles('services/osparc-gateway-server/requirements/prod.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-osparc-gateway-server-
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: install
+        run: |
+          make devenv && \
+          source .venv/bin/activate && \
+          pushd services/osparc-gateway-server && \
+          make install-ci
+      - name: test
+        run: |
+          source .venv/bin/activate && \
+          pushd services/osparc-gateway-server && \
+          make test-ci-integration
 
   build:
     timeout-minutes: 10
@@ -75,7 +111,7 @@ jobs:
       matrix:
         python: [3.8]
         os: [ubuntu-20.04]
-        docker_buildx: [0.7.0]
+        docker_buildx: [v0.7.0]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
