@@ -59,7 +59,7 @@ jobs:
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
       - name: install
-        run: pushd services/osparc-gateway-server && make install-ci
+        run: make devenv && pushd services/osparc-gateway-server && make install-ci
       - name: test
         run: pushd services/osparc-gateway-server && make test-unit
 
