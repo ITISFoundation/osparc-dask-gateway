@@ -1,0 +1,150 @@
+ARG PYTHON_VERSION="3.8.10"
+FROM python:${PYTHON_VERSION}-slim-buster as base
+
+
+LABEL maintainer=guidon
+
+RUN set -eux \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends \
+  iputils-ping \
+  curl \
+  gosu \
+  procps \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/* \
+  # verify that the binary works
+  && gosu nobody true
+
+
+# simcore-user uid=8004(scu) gid=8004(scu) groups=8004(scu)
+ENV SC_USER_ID=8004 \
+  SC_USER_NAME=scu \
+  SC_BUILD_TARGET=base \
+  SC_BOOT_MODE=default
+
+RUN adduser \
+  --uid ${SC_USER_ID} \
+  --disabled-password \
+  --gecos "" \
+  --shell /bin/sh \
+  --home /home/${SC_USER_NAME} \
+  ${SC_USER_NAME}
+
+
+ENV LANG=C.UTF-8 \
+  PYTHONDONTWRITEBYTECODE=1 \
+  VIRTUAL_ENV=/home/scu/.venv
+
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+
+
+EXPOSE 8080
+EXPOSE 8786
+EXPOSE 8787
+EXPOSE 8000
+
+# -------------------------- Build stage -------------------
+# Installs build/package management tools and third party dependencies
+#
+# + /build             WORKDIR
+#
+FROM base as build
+
+ENV SC_BUILD_TARGET=build
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+  build-essential \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+
+# NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
+RUN python -m venv "${VIRTUAL_ENV}"
+RUN pip --no-cache-dir install --upgrade \
+  pip~=21.2.3  \
+  wheel \
+  setuptools
+
+WORKDIR /build
+
+# copy osparc-dask-gateway and dependencies
+COPY --chown=scu:scu requirements/_base.txt .
+
+# install base 3rd party dependencies (NOTE: this speeds up devel mode)
+RUN pip --no-cache-dir install \
+  -r _base.txt
+
+# --------------------------Prod-depends-only stage -------------------
+# This stage is for production only dependencies that get partially wiped out afterwards (final docker image concerns)
+#
+#  + /build
+#    + services/osparc-dask-gateway [scu:scu] WORKDIR
+#
+FROM build as prod-only-deps
+
+ENV SC_BUILD_TARGET=prod-only-deps
+
+COPY --chown=scu:scu . /build/services/osparc-dask-gateway
+
+WORKDIR /build/services/osparc-dask-gateway
+
+RUN pip --no-cache-dir install -r requirements/prod.txt
+
+# --------------------------Production stage -------------------
+# Final cleanup up to reduce image size and startup setup
+# Runs as scu (non-root user)
+#
+#  + /home/scu     $HOME = WORKDIR
+#    + services/osparc-dask-gateway [scu:scu]
+#
+FROM base as production
+
+ENV SC_BUILD_TARGET=production \
+  SC_BOOT_MODE=production
+ENV PYTHONOPTIMIZE=TRUE
+
+WORKDIR /home/scu
+
+# bring installed package without build tools
+COPY --from=prod-only-deps --chown=scu:scu ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+# copy docker entrypoint and boot scripts
+COPY --chown=scu:scu docker services/osparc-dask-gateway/docker
+COPY --chown=scu:scu config services/osparc-dask-gateway/config
+
+
+# WARNING: This image is used for dask-scheduler and dask-worker.
+# In order to have the same healty entrypoint port
+# make sure dask worker is started as ``dask-worker --dashboard-address 8787``.
+# Otherwise the worker will take random ports to serve the /health entrypoint.
+# HEALTHCHECK \
+#   --interval=60s \
+#   --timeout=60s \
+#   --start-period=10s \
+#   --retries=3 \
+#   CMD ["curl", "-Lf", "http://127.0.0.1:8787/health"]
+
+ENTRYPOINT [ "/bin/sh", "services/osparc-dask-gateway/docker/entrypoint.sh" ]
+CMD ["/bin/sh", "services/osparc-dask-gateway/docker/boot.sh"]
+
+
+# --------------------------Development stage -------------------
+# Source code accessible in host but runs in container
+# Runs as scu with same gid/uid as host
+# Placed at the end to speed-up the build if images targeting production
+#
+#  + /devel         WORKDIR
+#    + services  (mounted volume)
+#
+FROM build as development
+
+ENV SC_BUILD_TARGET=development
+
+WORKDIR /devel
+RUN chown -R scu:scu "${VIRTUAL_ENV}"
+
+# NOTE: devel mode does NOT have HEALTHCHECK
+
+ENTRYPOINT [ "/bin/sh", "services/osparc-dask-gateway/docker/entrypoint.sh" ]
+CMD ["/bin/sh", "services/osparc-dask-gateway/docker/boot.sh"]
