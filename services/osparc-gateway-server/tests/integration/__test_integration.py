@@ -6,7 +6,6 @@ from aiodocker import Docker
 from aiodocker.docker import DockerContainer
 from aiodocker.exceptions import DockerError
 from aiodocker.services import DockerServices
-from dask import base
 from dask_gateway import BasicAuth, Gateway
 from dask_gateway_server.app import DaskGateway
 from osparc_gateway_server.backend.osparc import (
