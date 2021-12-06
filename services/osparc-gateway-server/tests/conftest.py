@@ -1,6 +1,4 @@
-pytest_plugins = [
-    "pytest_simcore.repository_paths",
-]
+pytest_plugins = ["pytest_simcore.repository_paths", "pytest_simcore.docker_swarm"]
 
 import sys
 from pathlib import Path

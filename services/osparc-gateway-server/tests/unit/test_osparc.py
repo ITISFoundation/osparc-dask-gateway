@@ -17,7 +17,7 @@ import asyncio
 
 
 @pytest.fixture
-async def docker_client(
+async def async_docker_client(
     loop: asyncio.AbstractEventLoop,
 ) -> AsyncIterator[aiodocker.Docker]:
     async with aiodocker.Docker() as docker_client:
@@ -26,23 +26,23 @@ async def docker_client(
 
 @pytest.fixture
 async def docker_service(
-    docker_client: aiodocker.Docker,
+    async_docker_client: aiodocker.Docker,
 ) -> AsyncIterator[Dict[str, Any]]:
     TaskTemplate = {
         "ContainerSpec": {
             "Image": "redis",
         },
     }
-    service = await docker_client.services.create(
+    service = await async_docker_client.services.create(
         task_template=TaskTemplate, name="my_service"
     )
     assert service
     print(f"--> created docker service {service=}")
-    inspected_service = await docker_client.services.inspect(service["ID"])
+    inspected_service = await async_docker_client.services.inspect(service["ID"])
     print(f"--> service inspected returned {inspected_service=}")
     yield inspected_service
     # cleanup
-    await docker_client.services.delete(service["ID"])
+    await async_docker_client.services.delete(service["ID"])
 
 
 from osparc_gateway_server.backend.osparc import _is_task_running
@@ -50,10 +50,13 @@ from pytest_mock.plugin import MockerFixture
 
 
 async def test_is_task_running(
+    docker_swarm,
     minimal_config,
-    docker_client: aiodocker.Docker,
+    async_docker_client: aiodocker.Docker,
     docker_service: Dict[str, Any],
     mocker: MockerFixture,
 ):
     mocked_logger = mocker.MagicMock()
-    await _is_task_running(docker_client, docker_service["Spec"]["Name"], mocked_logger)
+    await _is_task_running(
+        async_docker_client, docker_service["Spec"]["Name"], mocked_logger
+    )

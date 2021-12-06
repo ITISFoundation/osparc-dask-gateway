@@ -18,6 +18,8 @@ pytest-xdist
 pytest-icdiff
 
 # fixtures
+docker
+tenacity
 Faker
 
 # tools
