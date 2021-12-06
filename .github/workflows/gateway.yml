@@ -53,15 +53,15 @@ jobs:
         name: getting cached data
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-gateway-${{ hashFiles('services/gateway/requirements/prod.txt') }}
+          key: ${{ runner.os }}-pip-osparc-gateway-server-${{ hashFiles('services/osparc-gateway-server/requirements/prod.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-gateway-
+            ${{ runner.os }}-pip-osparc-gateway-server-
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
       - name: install
-        run: pushd services/gateway && make install-ci
+        run: pushd services/osparc-gateway-server && make install-ci
       - name: test
-        run: pushd services/gateway && make test-unit
+        run: pushd services/osparc-gateway-server && make test-unit
 
   build:
     timeout-minutes: 10
@@ -97,8 +97,8 @@ jobs:
         name: getting cached data
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-gateway-${{ hashFiles('services/gateway/requirements/prod.txt') }}
+          key: ${{ runner.os }}-pip-osparc-gateway-server-${{ hashFiles('services/osparc-gateway-server/requirements/prod.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-gateway-
+            ${{ runner.os }}-pip-osparc-gateway-server-
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
