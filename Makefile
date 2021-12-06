@@ -76,7 +76,7 @@ export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
 pushd services &&\
 docker buildx bake \
 	$(if $(findstring -devel,$@),,\
-	$(foreach service, $(SERVICES_LIST),\
+	$(foreach service, osparc-gateway-server,\
 		--set $(service).cache-from="type=local,src=$(DOCKER_BUILDX_CACHE_FROM)/$(service)" \
 		$(if $(create_cache),--set $(service).cache-to="type=local$(comma)mode=max$(comma)dest=$(DOCKER_BUILDX_CACHE_TO)/$(service)",) \
 	)\

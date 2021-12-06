@@ -134,13 +134,6 @@ jobs:
         with:
           version: ${{ matrix.docker_buildx }}
           driver: docker-container
-      - name: inspect docker buildx builder
-        run: |
-          echo "Name:      ${{ steps.buildx.outputs.name }}"
-          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
-          echo "Status:    ${{ steps.buildx.outputs.status }}"
-          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
-          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
       - name: setup python environment
         uses: actions/setup-python@v2
         with:
