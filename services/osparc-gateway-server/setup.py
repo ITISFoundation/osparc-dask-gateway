@@ -51,6 +51,6 @@ if __name__ == "__main__":
         tests_require=TEST_REQUIREMENTS,
         extras_require={"test": TEST_REQUIREMENTS},
         entry_points={
-            "console_scripts": ["osparc-gateway-server=osparc-gateway-server.app:start"]
+            "console_scripts": ["osparc-gateway-server=osparc_gateway_server.app:start"]
         },
     )
