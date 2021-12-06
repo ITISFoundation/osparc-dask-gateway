@@ -144,4 +144,5 @@ jobs:
       - name: build image
         run: |
           pushd services/osparc-gateway-server && \
-          make build
+          make build && \
+          make info-images
