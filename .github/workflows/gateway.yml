@@ -43,6 +43,37 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
+      - name: setup python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: show system version
+        run: ./ci/helpers/show_system_versions.bash
+      - uses: actions/cache@v2
+        name: getting cached data
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-gateway-${{ hashFiles('services/gateway/requirements/prod.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-gateway-
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: install
+        run: pushd services/gateway && make install-ci
+      - name: test
+        run: pushd services/gateway && make test-unit
+
+  build:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python: [3.8]
+        os: [ubuntu-20.04]
+        docker_buildx: [v0.6.3]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
       - name: setup docker buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
