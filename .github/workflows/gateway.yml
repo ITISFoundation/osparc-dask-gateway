@@ -122,6 +122,12 @@ jobs:
         with:
           version: ${{ matrix.docker_buildx }}
           driver: docker
+      - name: set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@v1
+        with:
+          image: tonistiigi/binfmt:latest
+          platforms: all
       - name: inspect docker buildxbuilder
         run: |
           echo "Name:      ${{ steps.buildx.outputs.name }}"
