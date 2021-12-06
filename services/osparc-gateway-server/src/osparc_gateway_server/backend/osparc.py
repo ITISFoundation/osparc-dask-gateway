@@ -34,6 +34,7 @@ async def _get_docker_network_id(
     docker_client: Docker, network_name: str, logger
 ) -> str:
     # try to find the network name (usually named STACKNAME_default)
+    logger.debug("finding network id for network %s", network_name)
     networks = [
         x
         for x in (await docker_client.networks.list())
@@ -45,7 +46,8 @@ async def _get_docker_network_id(
             "(if there is more then 1 network, remove the one which has no "
             f"containers attached and all is fixed): {networks}"
         )
-    return networks[0]
+    logger.debug("found a network %s", f"{networks[0]=}")
+    return networks[0]["Id"]
 
 
 def _create_service_parameters(
@@ -112,7 +114,7 @@ class OsparcBackend(LocalBackend):
 
     cluster_config_class = Type(
         "osparc_gateway_server.backend.osparc.OsparcClusterConfig",
-        klass="osparc_gateway_server.backends.base.ClusterConfig",
+        klass="dask_gateway_server.backends.base.ClusterConfig",
         help="The cluster config class to use",
         config=True,
     )
