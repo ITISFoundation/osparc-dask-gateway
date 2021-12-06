@@ -26,10 +26,82 @@ async def _is_task_running(docker_client: Docker, service_name: str, logger) -> 
     return num_running == 1
 
 
+from copy import deepcopy
+from typing import Any, Dict
+
+
+async def _get_docker_network_id(
+    docker_client: Docker, network_name: str, logger
+) -> str:
+    # try to find the network name (usually named STACKNAME_default)
+    networks = [
+        x
+        for x in (await docker_client.networks.list())
+        if "swarm" in x["Scope"] and network_name in x["Name"]
+    ]
+    if not networks or len(networks) > 1:
+        logger.error(
+            "Swarm network name is not configured, found following networks "
+            "(if there is more then 1 network, remove the one which has no "
+            f"containers attached and all is fixed): {networks}"
+        )
+    return networks[0]
+
+
+def _create_service_parameters(
+    settings: AppSettings,
+    worker_env: Dict[str, Any],
+    service_name: str,
+    network_id: str,
+    scheduler_address: str,
+) -> Dict[str, Any]:
+    env = deepcopy(worker_env)
+    env.update(
+        {
+            "DASK_SCHEDULER_ADDRESS": scheduler_address,
+            # "DASK_NTHREADS": nthreads,
+            # "DASK_MEMORY_LIMIT": memory_limit,
+            "DASK_WORKER_NAME": service_name,
+            "SIDECAR_COMP_SERVICES_SHARED_FOLDER": settings.GATEWAY_WORK_FOLDER,
+            "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": settings.GATEWAY_VOLUME_NAME,
+            "LOG_LEVEL": settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
+        }
+    )
+    mounts = [
+        # docker socket needed to use the docker api
+        {
+            "Source": "/var/run/docker.sock",
+            "Target": "/var/run/docker.sock",
+            "Type": "bind",
+            "ReadOnly": True,
+        },
+        # the workder data is stored in a volume
+        {
+            "Source": settings.GATEWAY_VOLUME_NAME,
+            "Target": settings.GATEWAY_WORK_FOLDER,
+            "Type": "volume",
+            "ReadOnly": False,
+        },
+    ]
+
+    container_config = {
+        "Env": env,
+        "Image": settings.COMPUTATIONAL_SIDECAR_IMAGE,
+        "Init": True,
+        "Mounts": mounts,
+    }
+    return {
+        "name": service_name,
+        "task_template": {
+            "ContainerSpec": container_config,
+            "RestartPolicy": {"Condition": "on-failure"},
+        },
+        "networks": [network_id],
+    }
+
+
 class OsparcClusterConfig(ClusterConfig):
     """Dask cluster configuration options when running as osparc backend"""
-
-    pass
 
 
 class OsparcBackend(LocalBackend):
@@ -39,8 +111,8 @@ class OsparcBackend(LocalBackend):
     """
 
     cluster_config_class = Type(
-        "osparc-gateway-server.backend.osparc.OsparcClusterConfig",
-        klass="dask_gateway_server.backends.base.ClusterConfig",
+        "osparc_gateway_server.backend.osparc.OsparcClusterConfig",
+        klass="osparc_gateway_server.backends.base.ClusterConfig",
         help="The cluster config class to use",
         config=True,
     )
@@ -61,92 +133,38 @@ class OsparcBackend(LocalBackend):
 
     async def do_start_worker(self, worker: Worker):
         self.log.debug("received call to start worker as %s", f"{worker=}")
-        env = self.get_worker_env(worker.cluster)
 
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
-        scheduler_host = scheduler_url.netloc.split(":")[0]
+        # scheduler_host = scheduler_url.netloc.split(":")[0]
         port = scheduler_url.netloc.split(":")[1]
         netloc = f"{self.settings.GATEWAY_SERVER_NAME}:{port}"
         scheduler_address = urlunsplit(scheduler_url._replace(netloc=netloc))
 
-        db_address = f"{self.default_host}:8787"
+        # db_address = f"{self.default_host}:8787"
         workdir = worker.cluster.state.get("workdir")
 
-        nthreads, memory_limit = self.worker_nthreads_memory_limit_args(worker.cluster)
+        # nthreads, memory_limit = self.worker_nthreads_memory_limit_args(worker.cluster)
 
-        env.update(
-            {
-                "DASK_SCHEDULER_HOST": scheduler_host,
-                "DASK_SCHEDULER_ADDRESS": scheduler_address,
-                "DASK_DASHBOARD_ADDRESS": db_address,
-                # "DASK_NTHREADS": nthreads,
-                # "DASK_MEMORY_LIMIT": memory_limit,
-                "DASK_WORKER_NAME": f"{worker.name}",
-                "SIDECAR_COMP_SERVICES_SHARED_FOLDER": self.settings.GATEWAY_WORK_FOLDER,
-                "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": self.settings.GATEWAY_VOLUME_NAME,
-                "LOG_LEVEL": self.settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
-            }
-        )
-
-        docker_image = self.settings.COMPUTATIONAL_SIDECAR_IMAGE
         workdir = worker.cluster.state.get("workdir")
         self.log.debug("workdir set as %s", f"{workdir=}")
-        container_config = {}
 
+        service_parameters = None
         try:
             async with Docker() as docker_client:
-                mounts = [
-                    # docker socket needed to use the docker api
-                    {
-                        "Source": "/var/run/docker.sock",
-                        "Target": "/var/run/docker.sock",
-                        "Type": "bind",
-                        "ReadOnly": True,
-                    },
-                    # the workder data is stored in a volume
-                    {
-                        "Source": self.settings.GATEWAY_VOLUME_NAME,
-                        "Target": self.settings.GATEWAY_WORK_FOLDER,
-                        "Type": "volume",
-                        "ReadOnly": False,
-                    },
-                ]
-
-                container_config = {
-                    "Env": env,
-                    "Image": docker_image,
-                    "Init": True,
-                    "Mounts": mounts,
-                }
-
-                network_name = self.settings.GATEWAY_WORKERS_NETWORK
-
-                # try to find the network name (usually named STACKNAME_default)
-                networks = [
-                    x
-                    for x in (await docker_client.networks.list())
-                    if "swarm" in x["Scope"] and network_name in x["Name"]
-                ]
-                if not networks or len(networks) > 1:
-                    self.log.error(
-                        "Swarm network name is not configured, found following networks "
-                        "(if there is more then 1 network, remove the one which has no "
-                        f"containers attached and all is fixed): {networks}"
-                    )
-                worker_network = networks[0]
-                network_name = worker_network["Name"]
-                self.log.info("Attaching worker to network %s", network_name)
-                network_id = worker_network["Id"]
+                # find service parameters
+                network_id = await _get_docker_network_id(
+                    docker_client, self.settings.GATEWAY_WORKERS_NETWORK, self.log
+                )
                 service_name = worker.name
-                service_parameters = {
-                    "name": service_name,
-                    "task_template": {
-                        "ContainerSpec": container_config,
-                        "RestartPolicy": {"Condition": "on-failure"},
-                    },
-                    "networks": [network_id],
-                }
+                service_parameters = _create_service_parameters(
+                    self.settings,
+                    self.get_worker_env(worker.cluster),
+                    service_name,
+                    network_id,
+                    scheduler_address,
+                )
 
+                # start service
                 self.log.info("Starting service %s", service_name)
                 self.log.debug(
                     "Using parameters %s", json.dumps(service_parameters, indent=2)
@@ -182,18 +200,10 @@ class OsparcBackend(LocalBackend):
                 )
                 yield {"service_id": service["ID"]}
 
-        except DockerContainerError:
+        except (DockerContainerError, DockerError):
             self.log.exception(
-                "Error while running %s with parameters %s",
-                docker_image,
-                container_config,
-            )
-            raise
-        except DockerError:
-            self.log.exception(
-                "Unknown error while trying to run %s with parameters %s",
-                docker_image,
-                container_config,
+                "Unexpected Error while running container with parameters %s",
+                json.dumps(service_parameters, indent=2),
             )
             raise
         except asyncio.CancelledError:
@@ -252,7 +262,7 @@ class OsparcBackend(LocalBackend):
         return ok
 
 
-class UnsafeOsparcBackend(OsparcBackend):
+class UnsafeOsparcBackend(OsparcBackend):  # pylint: disable=too-many-ancestors
     """A version of OsparcBackend that doesn't set permissions.
 
     This provides no user separations - clusters run with the

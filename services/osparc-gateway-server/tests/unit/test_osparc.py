@@ -45,14 +45,14 @@ async def docker_service(
     await docker_client.services.delete(service["ID"])
 
 
-from osparc-gateway-server.backend.osparc import _is_task_running
+from osparc_gateway_server.backend.osparc import _is_task_running
 from pytest_mock.plugin import MockerFixture
 
 
 async def test_is_task_running(
     minimal_config,
     docker_client: aiodocker.Docker,
-    docker_service: aiodocker.Docker,
+    docker_service: Dict[str, Any],
     mocker: MockerFixture,
 ):
     mocked_logger = mocker.MagicMock()
