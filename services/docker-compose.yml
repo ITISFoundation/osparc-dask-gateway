@@ -1,7 +1,7 @@
 version: '3.6' # Don't touch
 services:
-  dask-gateway-server-osparc:
-    image: local/osparc-dask-gateway:${BUILD_TARGET:?build_target_required}
+  osparc-gateway-server:
+    image: ${DOCKER_REGISTRY:-itisfoundation}/osparc-gateway-server:${DOCKER_IMAGE_TAG:-latest}
     ports:
       - "8000:8000"
     volumes:
@@ -11,11 +11,11 @@ services:
       - dask_net
     environment:
       - GATEWAY_WORK_FOLDER=/mnt/gateway
-      - GATEWAY_VOLUME_NAME=dask-gateway_gateway_data
+      - GATEWAY_VOLUME_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_gateway_data
       - GATEWAY_WORKERS_NETWORK=dask_net
-      - GATEWAY_SERVER_NAME=dask-gateway_dask-gateway-server-osparc
-      - COMPUTATIONAL_SIDECAR_IMAGE=local/dask-sidecar:production
-      - COMPUTATIONAL_SIDECAR_LOG_LEVEL=DEBUG
+      - GATEWAY_SERVER_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_osparc-gateway-server
+      - COMPUTATIONAL_SIDECAR_IMAGE=${COMPUTATIONAL_SIDECAR_IMAGE:-local/dask-sidecar:production}
+      - COMPUTATIONAL_SIDECAR_LOG_LEVEL=${COMPUTATIONAL_SIDECAR_LOG_LEVEL:-WARNING}
   # portainer:
   #   image: portainer/portainer-ce
   #   ports:
@@ -46,15 +46,8 @@ services:
 
 networks:
   dask_net: null
-    # attachable: true
-    # internal: false
-    # ipam:
-    #   driver: default
-    #   config:
-    #     - subnet: "172.9.0.0/16"
   volume-sync:
     driver: overlay
 
 volumes:
   gateway_data: null
-  portainer_data: null

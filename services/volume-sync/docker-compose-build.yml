@@ -1,6 +1,6 @@
 version: "3.8"
 services:
-  osparc-dask-gateway:
+  osparc-gateway-server:
     image: local/${SERVICE_NAME}:${BUILD_TARGET:?build_target_required}
     build:
       context: ./

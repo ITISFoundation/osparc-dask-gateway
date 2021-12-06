@@ -1,4 +1,4 @@
-# osparc-dask-gateway general makefile
+# osparc-gateway-server general makefile
 #
 # NOTES:
 # 	- GNU make version 4.2 recommended

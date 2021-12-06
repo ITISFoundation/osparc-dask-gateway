@@ -1,4 +1,4 @@
-name: osparc-dask-gateway
+name: osparc-gateway-server
 
 on:
   push:

@@ -69,8 +69,8 @@ RUN pip --no-cache-dir install --upgrade \
 
 WORKDIR /build
 
-# copy osparc-dask-gateway and dependencies
-COPY --chown=scu:scu requirements/_base.txt .
+# copy osparc-gateway-server and dependencies
+COPY --chown=scu:scu services/osparc-gateway-server/requirements/_base.txt .
 
 # install base 3rd party dependencies (NOTE: this speeds up devel mode)
 RUN pip --no-cache-dir install \
@@ -80,15 +80,15 @@ RUN pip --no-cache-dir install \
 # This stage is for production only dependencies that get partially wiped out afterwards (final docker image concerns)
 #
 #  + /build
-#    + services/osparc-dask-gateway [scu:scu] WORKDIR
+#    + services/osparc-gateway-server [scu:scu] WORKDIR
 #
 FROM build as prod-only-deps
 
 ENV SC_BUILD_TARGET=prod-only-deps
 
-COPY --chown=scu:scu . /build/services/osparc-dask-gateway
+COPY --chown=scu:scu services/osparc-gateway-server/ /build/services/osparc-gateway-server
 
-WORKDIR /build/services/osparc-dask-gateway
+WORKDIR /build/services/osparc-gateway-server
 
 RUN pip --no-cache-dir install -r requirements/prod.txt
 
@@ -97,7 +97,7 @@ RUN pip --no-cache-dir install -r requirements/prod.txt
 # Runs as scu (non-root user)
 #
 #  + /home/scu     $HOME = WORKDIR
-#    + services/osparc-dask-gateway [scu:scu]
+#    + services/osparc-gateway-server [scu:scu]
 #
 FROM base as production
 
@@ -110,8 +110,8 @@ WORKDIR /home/scu
 # bring installed package without build tools
 COPY --from=prod-only-deps --chown=scu:scu ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 # copy docker entrypoint and boot scripts
-COPY --chown=scu:scu docker services/osparc-dask-gateway/docker
-COPY --chown=scu:scu config services/osparc-dask-gateway/config
+COPY --chown=scu:scu services/osparc-gateway-server/docker services/osparc-gateway-server/docker
+COPY --chown=scu:scu services/osparc-gateway-server/config services/osparc-gateway-server/config
 
 
 # WARNING: This image is used for dask-scheduler and dask-worker.
@@ -125,8 +125,8 @@ COPY --chown=scu:scu config services/osparc-dask-gateway/config
 #   --retries=3 \
 #   CMD ["curl", "-Lf", "http://127.0.0.1:8787/health"]
 
-ENTRYPOINT [ "/bin/sh", "services/osparc-dask-gateway/docker/entrypoint.sh" ]
-CMD ["/bin/sh", "services/osparc-dask-gateway/docker/boot.sh"]
+ENTRYPOINT [ "/bin/sh", "services/osparc-gateway-server/docker/entrypoint.sh" ]
+CMD ["/bin/sh", "services/osparc-gateway-server/docker/boot.sh"]
 
 
 # --------------------------Development stage -------------------
@@ -146,5 +146,5 @@ RUN chown -R scu:scu "${VIRTUAL_ENV}"
 
 # NOTE: devel mode does NOT have HEALTHCHECK
 
-ENTRYPOINT [ "/bin/sh", "services/osparc-dask-gateway/docker/entrypoint.sh" ]
-CMD ["/bin/sh", "services/osparc-dask-gateway/docker/boot.sh"]
+ENTRYPOINT [ "/bin/sh", "services/osparc-gateway-server/docker/entrypoint.sh" ]
+CMD ["/bin/sh", "services/osparc-gateway-server/docker/boot.sh"]

@@ -20,7 +20,7 @@ def read_reqs(reqs_path: Path) -> Set[str]:
 
 CURRENT_DIR = Path(sys.argv[0] if __name__ == "__main__" else __file__).resolve().parent
 
-NAME = "osparc-dask-gateway"
+NAME = "osparc-gateway-server"
 VERSION = (CURRENT_DIR / "VERSION").read_text().strip()
 AUTHORS = "Manuel Guidon (mguidon), Sylvain Anderegg (sanderegg)"
 DESCRIPTION = "Osparc backend for dask-gateway-server"
@@ -51,6 +51,6 @@ if __name__ == "__main__":
         tests_require=TEST_REQUIREMENTS,
         extras_require={"test": TEST_REQUIREMENTS},
         entry_points={
-            "console_scripts": ["osparc-dask-gateway=osparc_dask_gateway.app:start"]
+            "console_scripts": ["osparc-gateway-server=osparc_dask_gateway.app:start"]
         },
     )

@@ -1,15 +1,15 @@
-version: "3.8"
+version: "3.6"
 services:
-  osparc-dask-gateway:
-    image: local/${SERVICE_NAME}:${BUILD_TARGET:?build_target_required}
+  osparc-gateway-server:
+    image: local/osparc-gateway-server:${BUILD_TARGET:?build_target_required}
     build:
-      context: ./
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: services/osparc-gateway-server/Dockerfile
       cache_from:
-        - local/${SERVICE_NAME}:${BUILD_TARGET:?build_target_required}
-        - ${DOCKER_REGISTRY:-itisfoundation}/osparc-dask-gateway:master-github-latest
-        - ${DOCKER_REGISTRY:-itisfoundation}/osparc-dask-gateway:staging-github-latest
-        - ${DOCKER_REGISTRY:-itisfoundation}/osparc-dask-gateway:release-github-latest
+        - local/osparc-gateway-server:${BUILD_TARGET:?build_target_required}
+        - ${DOCKER_REGISTRY:-itisfoundation}/osparc-gateway-server:master-github-latest
+        - ${DOCKER_REGISTRY:-itisfoundation}/osparc-gateway-server:staging-github-latest
+        - ${DOCKER_REGISTRY:-itisfoundation}/osparc-gateway-server:release-github-latest
       target: ${BUILD_TARGET:?build_target_required}
       labels:
         org.label-schema.schema-version: "1.0"

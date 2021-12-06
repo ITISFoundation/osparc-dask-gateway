@@ -61,7 +61,7 @@ class OsparcBackend(LocalBackend):
     async def do_setup(self):
         await super().do_setup()
         self.log.info(
-            "Osparc-Dask-Gateway application settings:\n%s",
+            "osparc-gateway-server application settings:\n%s",
             self.settings.json(indent=2),
         )
 

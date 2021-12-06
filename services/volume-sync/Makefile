@@ -47,7 +47,7 @@ $(VENV_DIR):
 .PHONY: build build-nc rebuild
 
 rebuild: build-nc # alias
-build build-nc: ## Builds production images and tags them as 'local/osparc-dask-gateway:production'
+build build-nc: ## Builds production images and tags them as 'local/osparc-gateway-server:production'
 	$(_docker_compose_build)
 
 .PHONY: up down
