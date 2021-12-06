@@ -1,0 +1,73 @@
+name: osparc-dask-gateway
+
+on:
+  push:
+    branches:
+      - "*"
+    tags-ignore:
+      - "*"
+    paths-ignore:
+      - "*.md"
+      - "*.png"
+      - "*.svg"
+      - "docs/**"
+      - ".vscode/**"
+  pull_request:
+    branches:
+      - "*"
+    paths-ignore:
+      - "*.md"
+      - "*.png"
+      - "*.svg"
+      - "docs/**"
+      - ".vscode/**"
+      - ".vscode-template/**"
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  # secrets can be set in settings/secrets on github
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+jobs:
+  unit-test:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python: [3.8]
+        os: [ubuntu-20.04]
+        docker_buildx: [v0.6.3]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup docker buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          version: ${{ matrix.docker_buildx }}
+          driver: docker
+      - name: inspect docker buildxbuilder
+        run: |
+          echo "Name:      ${{ steps.buildx.outputs.name }}"
+          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
+          echo "Status:    ${{ steps.buildx.outputs.status }}"
+          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
+          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
+      - name: setup python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: show system version
+        run: ./ci/helpers/show_system_versions.bash
+      - uses: actions/cache@v2
+        name: getting cached data
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-gateway-${{ hashFiles('services/gateway/requirements/prod.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-gateway-
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
