@@ -110,6 +110,7 @@ _run-test-dev: _check_venv_active
 		--durations=10 \
 		--exitfirst \
 		--failed-first \
+		--setup-show \
 		--pdb \
 		$(TEST_TARGET)
 
