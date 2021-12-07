@@ -4,15 +4,15 @@ FROM --platform=${BUILDPLATFORM} python:${PYTHON_VERSION}-slim-buster as base
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM" > /log \
-  && stat -c "%a %n" /var/cache/apt/ && stat -c "%a %n" /var/var/lib/
+  && stat -c "%a %n" /var/cache/apt/ && stat -c "%a %n" /var/lib/apt/
 
 
 
 LABEL maintainer=mguidon,sanderegg
 
 # libffi-dev is needed for ARM architectures
-RUN  --mount=type=cache,id=base-cache,target=/var/cache/apt \
-  --mount=type=cache,id=base-apt,target=/var/lib/apt \
+RUN  --mount=type=cache,id=base-cache,target=/var/cache/apt,mode=0755 \
+  --mount=type=cache,id=base-apt,target=/var/lib/apt,mode=0755 \
   set -eux \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -64,8 +64,8 @@ FROM base as build
 ENV SC_BUILD_TARGET=build
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
-RUN  --mount=type=cache,id=build-cache,target=/var/cache/apt \
-  --mount=type=cache,id=build-apt,target=/var/lib/apt \
+RUN  --mount=type=cache,id=build-cache,target=/var/cache/apt,mode=0755 \
+  --mount=type=cache,id=build-apt,target=/var/lib/apt,mode=0755 \
   apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
