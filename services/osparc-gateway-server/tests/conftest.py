@@ -1,3 +1,5 @@
+# pylint: disable=redefined-outer-name
+
 import sys
 from pathlib import Path
 
@@ -19,6 +21,7 @@ def package_dir():
     return pdir
 
 
+# overrides pytest-simcore fixture such that this folder is legal
 @pytest.fixture(scope="session")
 def osparc_gateway_server_root_dir(request) -> Path:
     """osparc-simcore repo root dir"""
@@ -45,6 +48,7 @@ def osparc_gateway_server_root_dir(request) -> Path:
     return root_dir
 
 
+# overrides pytest-simcore fixture such that this folder is legal
 @pytest.fixture(scope="session")
 def pylintrc(osparc_gateway_server_root_dir: Path) -> Path:
     pylintrc = osparc_gateway_server_root_dir / ".pylintrc"

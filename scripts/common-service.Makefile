@@ -15,7 +15,7 @@
 
 # Variable based on conventions (override if they do not apply)
 APP_NAME          = $(notdir $(CURDIR))
-APP_CLI_NAME      = simcore-service-$(APP_NAME)
+APP_CLI_NAME      = $(APP_NAME)
 APP_PACKAGE_NAME  = $(subst -,_,$(APP_CLI_NAME))
 APP_VERSION      := $(shell cat VERSION)
 SRC_DIR           = $(abspath $(CURDIR)/src/$(APP_PACKAGE_NAME))
