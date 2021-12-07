@@ -147,10 +147,19 @@ jobs:
           registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: build image for multi-arch
+      - name: build and deploy image for multi-arch
+        if: github.event_name == 'push'
         env:
           DOCKER_TARGET_PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
         run: |
           pushd services/osparc-gateway-server && \
           make build push=1 && \
+          make info-images
+      - name: build image for multi-arch
+        if: github.event_name == 'pull_request'
+        env:
+          DOCKER_TARGET_PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+        run: |
+          pushd services/osparc-gateway-server && \
+          make build && \
           make info-images
