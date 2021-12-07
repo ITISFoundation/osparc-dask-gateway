@@ -73,14 +73,15 @@ export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
 pushd services &&\
 docker buildx bake \
 	$(if $(findstring -devel,$@),,\
+	--set *.platform=$(DOCKER_TARGET_PLATFORMS) \
 	$(foreach service, $(SERVICES_LIST),\
-		--set $(service).platform=$(DOCKER_TARGET_PLATFORMS) \
 		--set $(service).cache-from="type=local,src=$(DOCKER_BUILDX_CACHE_FROM)/$(service)" \
 		$(if $(create_cache),--set $(service).cache-to="type=local$(comma)mode=max$(comma)dest=$(DOCKER_BUILDX_CACHE_TO)/$(service)",) \
+		--set $(service).tags=$(DOCKER_REGISTRY)/$(service):latest \
 	)\
 	)\
 	$(if $(findstring $(comma),$(DOCKER_TARGET_PLATFORMS)),,--set *.output="type=docker$(comma)push=false") \
-	$(if $(findstring push=1, $@),--set *.output="type=registry$(comma)push=true",) \
+	$(if $(push),--push,) \
 	--file docker-compose-build.yml $(if $(target),$(target),) &&\
 popd
 endef
