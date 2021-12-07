@@ -1,7 +1,9 @@
 import asyncio
 import json
+import logging
 import os
-from typing import List
+from copy import deepcopy
+from typing import Any, AsyncGenerator, Callable, Dict, List
 from urllib.parse import urlsplit, urlunsplit
 
 from aiodocker import Docker
@@ -16,7 +18,9 @@ from .settings import AppSettings
 __all__ = ("OsparcClusterConfig", "OsparcBackend", "UnsafeOsparcBackend")
 
 
-async def _is_task_running(docker_client: Docker, service_name: str, logger) -> bool:
+async def _is_task_running(
+    docker_client: Docker, service_name: str, logger: logging.Logger
+) -> bool:
     tasks = await docker_client.tasks.list(filters={"service": service_name})
     tasks_current_state = [task["Status"]["State"] for task in tasks]
     logger.info(
@@ -26,12 +30,8 @@ async def _is_task_running(docker_client: Docker, service_name: str, logger) -> 
     return num_running == 1
 
 
-from copy import deepcopy
-from typing import Any, Dict
-
-
 async def _get_docker_network_id(
-    docker_client: Docker, network_name: str, logger
+    docker_client: Docker, network_name: str, logger: logging.Logger
 ) -> str:
     # try to find the network name (usually named STACKNAME_default)
     logger.debug("finding network id for network %s", network_name)
@@ -47,6 +47,8 @@ async def _get_docker_network_id(
             f"containers attached and all is fixed): {networks}"
         )
     logger.debug("found a network %s", f"{networks[0]=}")
+    assert "Id" in networks[0]  # nosec
+    assert isinstance(networks[0]["Id"], str)  # nosec
     return networks[0]["Id"]
 
 
@@ -121,11 +123,9 @@ class OsparcBackend(LocalBackend):
 
     default_host = "0.0.0.0"
 
-    containers = {}  # keeping track of created containers
-
     settings: AppSettings
 
-    async def do_setup(self):
+    async def do_setup(self) -> None:
         await super().do_setup()
         self.settings = AppSettings()
         self.log.info(
@@ -133,7 +133,9 @@ class OsparcBackend(LocalBackend):
             self.settings.json(indent=2),
         )
 
-    async def do_start_worker(self, worker: Worker):
+    async def do_start_worker(
+        self, worker: Worker
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("received call to start worker as %s", f"{worker=}")
 
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
@@ -212,7 +214,7 @@ class OsparcBackend(LocalBackend):
             self.log.warn("Service creation was cancelled")
             raise
 
-    async def do_stop_worker(self, worker: Worker):
+    async def do_stop_worker(self, worker: Worker) -> None:
         self.log.debug("Calling to stop worker %s", f"{worker=}")
         if service_id := worker.state.get("service_id"):
             self.log.info("Stopping service %s", f"{service_id=}")
@@ -272,13 +274,13 @@ class UnsafeOsparcBackend(OsparcBackend):  # pylint: disable=too-many-ancestors
     everyone is a scu
     """
 
-    def make_preexec_fn(self, cluster: Cluster):
+    def make_preexec_fn(self, cluster: Cluster) -> Callable[[], None]:
         workdir = cluster.state["workdir"]
 
-        def preexec():  # pragma: nocover
+        def preexec() -> None:  # pragma: nocover
             os.chdir(workdir)
 
         return preexec
 
-    def set_file_permissions(self, paths, username):
+    def set_file_permissions(self, paths: List[str], username: str) -> None:
         pass

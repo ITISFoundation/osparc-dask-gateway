@@ -1,7 +1,10 @@
+import asyncio
 from typing import Any, AsyncIterator, Dict
 
 import aiodocker
 import pytest
+from osparc_gateway_server.backend.osparc import _is_task_running
+from pytest_mock.plugin import MockerFixture
 
 
 @pytest.fixture
@@ -11,9 +14,6 @@ def minimal_config(monkeypatch):
     monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", "atestnetwork")
     monkeypatch.setenv("GATEWAY_SERVER_NAME", "atestserver")
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_IMAGE", "test/localpytest:latest")
-
-
-import asyncio
 
 
 @pytest.fixture
@@ -43,10 +43,6 @@ async def docker_service(
     yield inspected_service
     # cleanup
     await async_docker_client.services.delete(service["ID"])
-
-
-from osparc_gateway_server.backend.osparc import _is_task_running
-from pytest_mock.plugin import MockerFixture
 
 
 async def test_is_task_running(

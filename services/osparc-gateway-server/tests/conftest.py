@@ -1,10 +1,11 @@
-pytest_plugins = ["pytest_simcore.repository_paths", "pytest_simcore.docker_swarm"]
-
 import sys
 from pathlib import Path
 
 import osparc_gateway_server
 import pytest
+
+pytest_plugins = ["pytest_simcore.repository_paths", "pytest_simcore.docker_swarm"]
+
 
 CURRENT_DIR = Path(sys.argv[0] if __name__ == "__main__" else __file__).resolve().parent
 WILDCARD = "services/osparc-gateway-server/README.md"
