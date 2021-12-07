@@ -1,13 +1,14 @@
-import asyncio
-import json
-from typing import AsyncIterator, List, NamedTuple
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
 
+import asyncio
+from os import name
+from typing import AsyncIterator, NamedTuple
+
+import aiodocker
 import pytest
 import traitlets.config
 from aiodocker import Docker
-from aiodocker.docker import DockerContainer
-from aiodocker.exceptions import DockerError
-from aiodocker.services import DockerServices
 from dask_gateway import BasicAuth, Gateway
 from dask_gateway_server.app import DaskGateway
 from osparc_gateway_server.backend.osparc import (
@@ -15,6 +16,7 @@ from osparc_gateway_server.backend.osparc import (
     UnsafeOsparcBackend,
 )
 from tenacity import retry
+from tenacity._asyncio import AsyncRetrying
 from tenacity.stop import stop_after_attempt
 from tenacity.wait import wait_fixed
 
@@ -23,12 +25,54 @@ TMP_FOLDER = "/tmp/gateway"
 
 
 @pytest.fixture
-def minimal_config(monkeypatch):
-    monkeypatch.setenv("GATEWAY_VOLUME_NAME", "atestvolumename")
-    monkeypatch.setenv("GATEWAY_WORK_FOLDER", "atestworkfolder")
-    monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", "atestnetwork")
+async def gateway_workers_network(
+    async_docker_client: aiodocker.Docker,
+) -> AsyncIterator[str]:
+    _NETWORK_NAME = "pytest_swarm_network"
+    network = await async_docker_client.networks.create(
+        config={"Name": _NETWORK_NAME, "Driver": "overlay"}
+    )
+    assert network
+
+    yield _NETWORK_NAME
+    await network.delete()
+    async for attempt in AsyncRetrying(reraise=True, wait=wait_fixed(1)):
+        with attempt:
+            print(f"<-- waiting for network '{_NETWORK_NAME}' deletion...")
+            list_of_network_names = [
+                network["Name"] for network in await async_docker_client.networks.list()
+            ]
+            assert _NETWORK_NAME not in list_of_network_names
+        print(f"<-- network '{_NETWORK_NAME}' deleted")
+
+
+@pytest.fixture
+async def gateway_volume_name(
+    async_docker_client: aiodocker.Docker,
+) -> AsyncIterator[str]:
+    _VOLUME_NAME = "pytest_gateway_volume"
+    volume = await async_docker_client.volumes.create(config={"Name": _VOLUME_NAME})
+    assert volume
+    yield _VOLUME_NAME
+    async for attempt in AsyncRetrying(reraise=True, wait=wait_fixed(1)):
+        with attempt:
+            print(f"<-- deleting volume '{_VOLUME_NAME}'...")
+            await volume.delete()
+        print(f"<-- volume '{_VOLUME_NAME}' deleted")
+
+
+@pytest.fixture
+def minimal_config(
+    docker_swarm, monkeypatch, gateway_workers_network: str, gateway_volume_name: str
+):
+    monkeypatch.setenv("GATEWAY_VOLUME_NAME", gateway_volume_name)
+    monkeypatch.setenv("GATEWAY_WORK_FOLDER", "/tmp/pytest_work_folder")
+    monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", gateway_workers_network)
     monkeypatch.setenv("GATEWAY_SERVER_NAME", "atestserver")
-    monkeypatch.setenv("COMPUTATIONAL_SIDECAR_IMAGE", "test/localpytest:latest")
+    monkeypatch.setenv(
+        "COMPUTATIONAL_SIDECAR_IMAGE",
+        "itisfoundation/dask-sidecar:master-github-latest",
+    )
 
 
 class DaskGatewayServer(NamedTuple):
@@ -39,7 +83,10 @@ class DaskGatewayServer(NamedTuple):
 
 
 @pytest.fixture
-async def local_dask_gateway_server(loop) -> AsyncIterator[DaskGatewayServer]:
+async def local_dask_gateway_server(
+    loop: asyncio.AbstractEventLoop,
+    minimal_config: None,
+) -> AsyncIterator[DaskGatewayServer]:
     """this code is more or less copy/pasted from dask-gateway repo"""
     c = traitlets.config.Config()
     c.DaskGateway.backend_class = UnsafeOsparcBackend  # type: ignore
@@ -113,13 +160,13 @@ async def test_cluster_start_stop(minimal_config, gateway_client: Gateway):
         assert clusters[0].name == cluster.name
 
         # Shutdown the cluster
-        await cluster.shutdown()
+        await cluster.shutdown()  # type: ignore
 
         clusters = await gateway_client.list_clusters()
         assert clusters == []
 
 
-async def test_cluster_scale(minimal_config, gateway_client: Gateway):
+async def test_cluster_scale(docker_swarm, minimal_config, gateway_client: Gateway):
     # No currently running clusters
     clusters = await gateway_client.list_clusters()
     assert clusters == []
@@ -141,7 +188,7 @@ async def test_cluster_scale(minimal_config, gateway_client: Gateway):
         await wait_for_n_containers(2)
 
         async with cluster.get_client(set_as_default=False) as client:
-            res = await client.submit(lambda x: x + 1, 1)
+            res = await client.submit(lambda x: x + 1, 1)  # type: ignore
             assert res == 2
 
         # Scale down
@@ -155,11 +202,11 @@ async def test_cluster_scale(minimal_config, gateway_client: Gateway):
 
         # Can still compute
         async with cluster.get_client(set_as_default=False) as client:
-            res = await client.submit(lambda x: x + 1, 1)
+            res = await client.submit(lambda x: x + 1, 1)  # type: ignore
             assert res == 2
 
         # Shutdown the cluster
-        await cluster.shutdown()
+        await cluster.shutdown()  # type: ignore
 
         # we should have no service
         await wait_for_n_services(0)
@@ -192,16 +239,16 @@ async def test_multiple_clusters(minimal_config, gateway_client: Gateway):
             await wait_for_n_containers(3)
 
             async with cluster1.get_client(set_as_default=False) as client:
-                res = await client.submit(lambda x: x + 1, 1)
+                res = await client.submit(lambda x: x + 1, 1)  # type: ignore
                 assert res == 2
 
             async with cluster2.get_client(set_as_default=False) as client:
-                res = await client.submit(lambda x: x + 1, 1)
+                res = await client.submit(lambda x: x + 1, 1)  # type: ignore
                 assert res == 2
 
             # Shutdown the cluster1
-            await cluster1.shutdown()
-            await cluster2.shutdown()
+            await cluster1.shutdown()  # type: ignore
+            await cluster2.shutdown()  # type: ignore
 
             # we should have no service
             await wait_for_n_services(0)

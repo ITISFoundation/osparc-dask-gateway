@@ -139,10 +139,11 @@ class OsparcBackend(LocalBackend):
         self.log.debug("received call to start worker as %s", f"{worker=}")
 
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
-        # scheduler_host = scheduler_url.netloc.split(":")[0]
+        scheduler_host = scheduler_url.netloc.split(":")[0]
         port = scheduler_url.netloc.split(":")[1]
         netloc = f"{self.settings.GATEWAY_SERVER_NAME}:{port}"
         scheduler_address = urlunsplit(scheduler_url._replace(netloc=netloc))
+        # scheduler_address = worker.cluster.scheduler_address
 
         # db_address = f"{self.default_host}:8787"
         workdir = worker.cluster.state.get("workdir")

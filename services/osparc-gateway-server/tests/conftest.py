@@ -1,8 +1,12 @@
+# pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
 
+import asyncio
 import sys
 from pathlib import Path
+from typing import AsyncIterator
 
+import aiodocker
 import osparc_gateway_server
 import pytest
 
@@ -54,3 +58,11 @@ def pylintrc(osparc_gateway_server_root_dir: Path) -> Path:
     pylintrc = osparc_gateway_server_root_dir / ".pylintrc"
     assert pylintrc.exists()
     return pylintrc
+
+
+@pytest.fixture
+async def async_docker_client(
+    loop: asyncio.AbstractEventLoop,
+) -> AsyncIterator[aiodocker.Docker]:
+    async with aiodocker.Docker() as docker_client:
+        yield docker_client

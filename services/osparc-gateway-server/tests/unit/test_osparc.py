@@ -1,4 +1,6 @@
-import asyncio
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
+
 from typing import Any, AsyncIterator, Dict
 
 import aiodocker
@@ -14,14 +16,6 @@ def minimal_config(monkeypatch):
     monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", "atestnetwork")
     monkeypatch.setenv("GATEWAY_SERVER_NAME", "atestserver")
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_IMAGE", "test/localpytest:latest")
-
-
-@pytest.fixture
-async def async_docker_client(
-    loop: asyncio.AbstractEventLoop,
-) -> AsyncIterator[aiodocker.Docker]:
-    async with aiodocker.Docker() as docker_client:
-        yield docker_client
 
 
 @pytest.fixture
