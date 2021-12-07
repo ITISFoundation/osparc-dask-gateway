@@ -1,0 +1,33 @@
+# root
+ancillary/
+docs/
+ops/
+
+# Byte-compiled / optimized / DLL files
+**/__pycache__
+*.py[cod]
+
+# virtualenv
+.venv
+
+#python eggs
+**/*.egg-info
+
+
+#pytest folders
+**/.pytest_cache
+
+# coverage files
+.coverage*
+
+# pytest-fixture-tools output
+artifacts
+
+# dask artifacts in devel mode
+dask*-space/
+
+# produced when mounting volumes on docker and pip installing
+.local/
+
+# mypy cache
+**/.mypy_cache/
