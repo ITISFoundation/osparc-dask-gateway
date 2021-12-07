@@ -1,5 +1,7 @@
 # osparc-dask-gatway
 
+[![osparc-gateway-server](https://github.com/ITISFoundation/osparc-dask-gateway/actions/workflows/gateway.yml/badge.svg)](https://github.com/ITISFoundation/osparc-dask-gateway/actions/workflows/gateway.yml)
+
 ## gateway
 
 Implements osparc specific backend for the dask gatewaz based on docker-swarm
