@@ -89,20 +89,20 @@ rebuild: build-nc # alias
 build build-nc: .env ## Builds production images and tags them as 'local/{service-name}:production'. For single target e.g. 'make target=osparc-$(SWARM_STACK_NAME) build'
 ifeq ($(target),)
 	# Building services
-	$(_docker_compose_build)
+	@$(_docker_compose_build)
 else
 	# Building service $(target)
-	$(_docker_compose_build)
+	@$(_docker_compose_build)
 endif
 
 
 build-devel build-devel-nc: .env ## Builds development images and tags them as 'local/{service-name}:development'. For single target e.g. 'make target=osparc-$(SWARM_STACK_NAME) build-devel'
 ifeq ($(target),)
 	# Building services
-	$(_docker_compose_build)
+	@$(_docker_compose_build)
 else
 	# Building service $(target)
-	@$(_docker_compose_build)
+	@@$(_docker_compose_build)
 endif
 
 .PHONY: shell
