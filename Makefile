@@ -80,6 +80,7 @@ docker buildx bake \
 	)\
 	)\
 	$(if $(findstring $(comma),$(DOCKER_TARGET_PLATFORMS)),,--set *.output="type=docker,push=false") \
+	$(if $(findstring push=1, $@),,--set *.output="type=registry,push=true") \
 	--file docker-compose-build.yml $(if $(target),$(target),) &&\
 popd
 endef
