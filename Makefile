@@ -71,6 +71,11 @@ define _docker_compose_build
 $(if $(create_cache),$(info creating cache file in $(DOCKER_BUILDX_CACHE_TO)),)
 export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
 pushd services &&\
+$(foreach service, $(SERVICES_LIST),\
+	$(if $(push),\
+		export $(subst -,_,$(shell echo $(service) | tr a-z A-Z))_VERSION=$(shell cat services/$(service)/VERSION);\
+	,) \
+)\
 docker buildx bake \
 	$(if $(findstring -devel,$@),,\
 	--set *.platform=$(DOCKER_TARGET_PLATFORMS) \
