@@ -2,7 +2,7 @@ ARG PYTHON_VERSION="3.8.10"
 FROM python:${PYTHON_VERSION}-slim-buster as base
 
 
-LABEL maintainer=mguidon
+LABEL maintainer=mguidon,sanderegg
 
 RUN set -eux \
   && apt-get update \
