@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1.3
 ARG PYTHON_VERSION="3.8.10"
-FROM python:${PYTHON_VERSION}-slim-buster as base
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+FROM --platform=${BUILDPLATFORM} python:${PYTHON_VERSION}-slim-buster as base
+RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM" > /log
+
 
 
 LABEL maintainer=mguidon,sanderegg
@@ -56,18 +60,19 @@ FROM base as build
 
 ENV SC_BUILD_TARGET=build
 
+RUN rm -f /etc/apt/apt.conf.d/docker-clean
 RUN  --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
   apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
   git \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  golang-go
 
 
 # NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
 RUN python -m venv "${VIRTUAL_ENV}"
-RUN --mount=type=cache,target=/root/.cache/pip pip --no-cache-dir install --upgrade \
+RUN --mount=type=cache,mode=0777,target=/root/.cache/pip \
+  pip install --upgrade \
   pip~=21.2.3  \
   wheel \
   setuptools
@@ -79,7 +84,8 @@ COPY --chown=scu:scu services/osparc-gateway-server/requirements/_base.txt .
 
 # install base 3rd party dependencies (NOTE: this speeds up devel mode)
 ENV MAKEFLAGS="-j 12"
-RUN --mount=type=cache,target=/root/.cache/pip pip --no-cache-dir install \
+RUN --mount=type=cache,mode=0777,target=/root/.cache/pip \
+  pip install \
   -r _base.txt
 
 # --------------------------Prod-depends-only stage -------------------
@@ -96,7 +102,8 @@ COPY --chown=scu:scu services/osparc-gateway-server/ /build/services/osparc-gate
 
 WORKDIR /build/services/osparc-gateway-server
 
-RUN pip --no-cache-dir install -r requirements/prod.txt
+RUN --mount=type=cache,mode=0777,target=/root/.cache/pip \
+  pip install -r requirements/prod.txt
 
 # --------------------------Production stage -------------------
 # Final cleanup up to reduce image size and startup setup
