@@ -3,7 +3,8 @@ ARG PYTHON_VERSION="3.8.10"
 FROM --platform=${BUILDPLATFORM} python:${PYTHON_VERSION}-slim-buster as base
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
-RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM" > /log
+RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM" > /log \
+  && stat -c "%a %n" /var/cache/apt/ && stat -c "%a %n" /var/var/lib/
 
 
 
