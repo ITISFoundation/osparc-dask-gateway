@@ -4,6 +4,7 @@ FROM python:${PYTHON_VERSION}-slim-buster as base
 
 LABEL maintainer=mguidon,sanderegg
 
+# libffi-dev is needed for ARM architectures
 RUN set -eux \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
