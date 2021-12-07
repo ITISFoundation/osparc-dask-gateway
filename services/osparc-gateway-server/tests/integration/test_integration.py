@@ -12,24 +12,36 @@ from osparc_gateway_server.backend.osparc import (
     OsparcClusterConfig,
     UnsafeOsparcBackend,
 )
+from tenacity import retry
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_fixed
 from traitlets.config import Config
 
 PASSWORD = "asdf"
 TMP_FOLDER = "/tmp/gateway"
 
 
-class TestGateway(object):
+@pytest.fixture
+def minimal_config(monkeypatch):
+    monkeypatch.setenv("GATEWAY_VOLUME_NAME", "atestvolumename")
+    monkeypatch.setenv("GATEWAY_WORK_FOLDER", "atestworkfolder")
+    monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", "atestnetwork")
+    monkeypatch.setenv("GATEWAY_SERVER_NAME", "atestserver")
+    monkeypatch.setenv("COMPUTATIONAL_SIDECAR_IMAGE", "test/localpytest:latest")
+
+
+class TestGateway:
     def __init__(self):
         c = Config()
-        c.DaskGateway.backend_class = UnsafeOsparcBackend
-        c.DaskGateway.Backend.cluster_config_class = OsparcClusterConfig
-        c.DaskGateway.address = "127.0.0.1:0"
-        c.Proxy.address = "127.0.0.1:0"
-        c.DaskGateway.authenticator_class = (
+        c.DaskGateway.backend_class = UnsafeOsparcBackend  # type: ignore
+        c.DaskGateway.Backend.cluster_config_class = OsparcClusterConfig  # type: ignore
+        c.DaskGateway.address = "127.0.0.1:0"  # type: ignore
+        c.Proxy.address = "127.0.0.1:0"  # type: ignore
+        c.DaskGateway.authenticator_class = (  # type: ignore
             "dask_gateway_server.auth.SimpleAuthenticator"
         )
-        c.DaskGateway.Authenticator.password = PASSWORD
-        c.OsparcBackend.clusters_directory = TMP_FOLDER
+        c.DaskGateway.Authenticator.password = PASSWORD  # type: ignore
+        c.OsparcBackend.clusters_directory = TMP_FOLDER  # type: ignore
 
         self.config = c
 
@@ -56,52 +68,28 @@ class TestGateway(object):
 
 
 async def list_containers() -> List[DockerContainer]:
-    containers = list()
-    try:
-        async with Docker() as docker_client:
-            containers = await docker_client.containers.list()
-    except DockerError:
-        print("Docker Error")
-
-    return containers
+    async with Docker() as docker_client:
+        return await docker_client.containers.list()
 
 
 async def list_services() -> List[DockerServices]:
-    services = list()
-    try:
-        async with Docker() as docker_client:
-            services = await docker_client.services.list()
-    except DockerError:
-        print("Docker Error")
-
-    return services
+    async with Docker() as docker_client:
+        return await docker_client.services.list()
 
 
-async def with_retries(f, N, wait=0.1, *args):
-    for i in range(N):
-        try:
-            await f(*args)
-            break
-        except Exception:
-            if i < N - 1:
-                await asyncio.sleep(wait)
-            else:
-                raise
-
-
-# this should have spawned two services
+@retry(reraise=True, stop=stop_after_attempt(20), wait=wait_fixed(0.1))
 async def wait_for_n_services(n: int):
     services = await list_services()
     assert len(services) == n
 
 
+@retry(reraise=True, stop=stop_after_attempt(20), wait=wait_fixed(0.1))
 async def wait_for_n_containers(n: int):
     containers = await list_containers()
     assert len(containers) == n
 
 
-@pytest.mark.asyncio
-async def test_cluster_start_stop():
+async def test_cluster_start_stop(minimal_config):
     async with TestGateway() as g:
         async with g.gateway_client(
             auth=BasicAuth(username=None, password=PASSWORD)
@@ -123,8 +111,7 @@ async def test_cluster_start_stop():
                 assert clusters == []
 
 
-@pytest.mark.asyncio
-async def test_cluster_scale():
+async def test_cluster_scale(minimal_config):
     async with TestGateway() as g:
         async with g.gateway_client(
             auth=BasicAuth(username=None, password=PASSWORD)
@@ -144,10 +131,10 @@ async def test_cluster_scale():
                 await cluster.scale(2)
 
                 # we should have 2 services
-                await with_retries(wait_for_n_services, 20, 1.0, 2)
+                await wait_for_n_services(2)
 
                 # and 2 corresponding containers
-                await with_retries(wait_for_n_containers, 20, 1.0, 2)
+                await wait_for_n_containers(2)
 
                 async with cluster.get_client(set_as_default=False) as client:
                     res = await client.submit(lambda x: x + 1, 1)
@@ -157,10 +144,10 @@ async def test_cluster_scale():
                 await cluster.scale(1)
 
                 # we should have 1 service
-                await with_retries(wait_for_n_services, 20, 1.0, 1)
+                await wait_for_n_services(1)
 
                 # and 1 corresponding container
-                await with_retries(wait_for_n_containers, 20, 1.0, 1)
+                await wait_for_n_containers(1)
 
                 # Can still compute
                 async with cluster.get_client(set_as_default=False) as client:
@@ -172,14 +159,13 @@ async def test_cluster_scale():
                 await cluster.shutdown()
 
                 # we should have no service
-                await with_retries(wait_for_n_services, 20, 1.0, 0)
+                await wait_for_n_services(0)
 
                 # and no corresponding container
-                await with_retries(wait_for_n_containers, 20, 1.0, 0)
+                await wait_for_n_containers(0)
 
 
-@pytest.mark.asyncio
-async def test_multiple_clusters():
+async def test_multiple_clusters(minimal_config):
     async with TestGateway() as g:
         async with g.gateway_client(
             auth=BasicAuth(username=None, password=PASSWORD)
@@ -201,10 +187,10 @@ async def test_multiple_clusters():
                     await cluster2.scale(2)
 
                     # we should have 3 services
-                    await with_retries(wait_for_n_services, 20, 1.0, 3)
+                    await wait_for_n_services(3)
 
                     # and 3 corresponding containers
-                    await with_retries(wait_for_n_containers, 20, 1.0, 3)
+                    await wait_for_n_containers(3)
 
                     async with cluster1.get_client(set_as_default=False) as client:
                         res = await client.submit(lambda x: x + 1, 1)
@@ -219,7 +205,7 @@ async def test_multiple_clusters():
                     await cluster2.shutdown()
 
                     # we should have no service
-                    await with_retries(wait_for_n_services, 20, 1.0, 0)
+                    await wait_for_n_services(0)
 
                     # and no corresponding container
-                    await with_retries(wait_for_n_containers, 20, 1.0, 0)
+                    await wait_for_n_containers(0)
