@@ -101,7 +101,7 @@ def _create_service_parameters(
             "RestartPolicy": {"Condition": "on-failure"},
         },
         "networks": [network_id],
-        "Mode": "Global"
+        "mode": {"Global":{}}
     }
 
 
@@ -189,7 +189,7 @@ class OsparcBackend(LocalBackend):
 
                 # wait until the service is started
                 self.log.info(
-                    "---> Service started, waiting for service %s to start...",
+                    "---> Service started, waiting for service %s to run...",
                     service_name,
                 )
                 while not await _is_task_running(
