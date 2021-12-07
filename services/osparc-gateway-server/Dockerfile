@@ -65,8 +65,7 @@ RUN  --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib
   apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
-  git \
-  golang-go
+  git
 
 
 # NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
