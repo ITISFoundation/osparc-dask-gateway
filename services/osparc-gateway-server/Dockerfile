@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.3
 ARG PYTHON_VERSION="3.8.10"
 FROM python:${PYTHON_VERSION}-slim-buster as base
 
@@ -55,7 +56,8 @@ FROM base as build
 
 ENV SC_BUILD_TARGET=build
 
-RUN apt-get update \
+RUN  --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+  apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
   git \
@@ -65,7 +67,7 @@ RUN apt-get update \
 
 # NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
 RUN python -m venv "${VIRTUAL_ENV}"
-RUN pip --no-cache-dir install --upgrade \
+RUN --mount=type=cache,target=/root/.cache/pip pip --no-cache-dir install --upgrade \
   pip~=21.2.3  \
   wheel \
   setuptools
@@ -76,7 +78,8 @@ WORKDIR /build
 COPY --chown=scu:scu services/osparc-gateway-server/requirements/_base.txt .
 
 # install base 3rd party dependencies (NOTE: this speeds up devel mode)
-RUN pip --no-cache-dir install \
+ENV MAKEFLAGS="-j 12"
+RUN --mount=type=cache,target=/root/.cache/pip pip --no-cache-dir install \
   -r _base.txt
 
 # --------------------------Prod-depends-only stage -------------------
