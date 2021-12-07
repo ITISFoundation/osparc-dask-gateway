@@ -62,7 +62,7 @@ def _create_service_parameters(
     env = deepcopy(worker_env)
     env.update(
         {
-            "DASK_SCHEDULER_ADDRESS": scheduler_address,
+            "DASK_SCHEDULER_URL": scheduler_address,
             # "DASK_NTHREADS": nthreads,
             # "DASK_MEMORY_LIMIT": memory_limit,
             "DASK_WORKER_NAME": service_name,
@@ -139,7 +139,7 @@ class OsparcBackend(LocalBackend):
         self.log.debug("received call to start worker as %s", f"{worker=}")
 
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
-        # scheduler_host = scheduler_url.netloc.split(":")[0]
+        scheduler_host = scheduler_url.netloc.split(":")[0]
         port = scheduler_url.netloc.split(":")[1]
         netloc = f"{self.settings.GATEWAY_SERVER_NAME}:{port}"
         scheduler_address = urlunsplit(scheduler_url._replace(netloc=netloc))
