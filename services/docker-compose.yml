@@ -16,33 +16,25 @@ services:
       - GATEWAY_SERVER_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_osparc-gateway-server
       - COMPUTATIONAL_SIDECAR_IMAGE=${COMPUTATIONAL_SIDECAR_IMAGE:-local/dask-sidecar:production}
       - COMPUTATIONAL_SIDECAR_LOG_LEVEL=${COMPUTATIONAL_SIDECAR_LOG_LEVEL:-WARNING}
-  # portainer:
-  #   image: portainer/portainer-ce
-  #   ports:
-  #     - "9000:9000"
-  #   command: -H unix:///var/run/docker.sock
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     - portainer_data:/data
 
-  # volume-sync:
-  #   image: mguidon/osparc-volume-sync:production
-  #   restart: always
-  #   volumes:
-  #     - gateway_data:/volumes/sync
-  #   networks:
-  #     - volume-sync
-  #   environment:
-  #     LOG_LEVEL: DEBUG
-  #     HOSTNAME: volume-sync
-  #     SYNC_FOLDER: /volumes/sync
-  #     SYNC_INTERVAL: 3
-  #     SYNC_TIMEOUT: 0
-  #     SYNC_TYPE: ALL
-  #     WAIT_PERIOD: 1
-  #   deploy:
-  #     mode: global
-  #     endpoint_mode: dnsrr
+  volume-sync:
+    image: ${DOCKER_REGISTRY:-itisfoundation}/volume-sync:${DOCKER_IMAGE_TAG:-latest}
+    restart: always
+    volumes:
+      - gateway_data:/volumes/sync
+    networks:
+      - volume-sync
+    environment:
+      LOG_LEVEL: DEBUG
+      HOSTNAME: volume-sync
+      SYNC_FOLDER: /volumes/sync
+      SYNC_INTERVAL: 3
+      SYNC_TIMEOUT: 0
+      SYNC_TYPE: ALL
+      WAIT_PERIOD: 1
+    deploy:
+      mode: global
+      endpoint_mode: dnsrr
 
 networks:
   dask_net: null
