@@ -64,10 +64,7 @@ SWARM_HOSTS = $(shell docker node ls --format="{{.Hostname}}" 2>$(if $(IS_WIN),N
 # docker buildx cache location
 DOCKER_BUILDX_CACHE_FROM ?= /tmp/.buildx-cache
 DOCKER_BUILDX_CACHE_TO ?= /tmp/.buildx-cache
-# docker build temporary registry
-DOCKER_BUILD_REGISTRY_PORT ?= 15000
-DOCKER_BUILD_REGISTRY_NAME ?= build_registry
-
+DOCKER_TARGET_PLATFORMS ?= linux/amd64
 comma := ,
 
 define _docker_compose_build
@@ -77,11 +74,12 @@ pushd services &&\
 docker buildx bake \
 	$(if $(findstring -devel,$@),,\
 	$(foreach service, $(SERVICES_LIST),\
+		--set $(service).platform=$(DOCKER_TARGET_PLATFORMS) \
 		--set $(service).cache-from="type=local,src=$(DOCKER_BUILDX_CACHE_FROM)/$(service)" \
 		$(if $(create_cache),--set $(service).cache-to="type=local$(comma)mode=max$(comma)dest=$(DOCKER_BUILDX_CACHE_TO)/$(service)",) \
 	)\
 	)\
-	--set *.output="type=docker,push=false" \
+	$(if $(findstring $(comma),$(DOCKER_TARGET_PLATFORMS)),,--set *.output="type=docker,push=false") \
 	--file docker-compose-build.yml $(if $(target),$(target),) &&\
 popd
 endef
