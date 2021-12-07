@@ -1,6 +1,8 @@
 # osparc-dask-gatway
 
-[![osparc-gateway-server](https://github.com/ITISFoundation/osparc-dask-gateway/actions/workflows/gateway.yml/badge.svg)](https://github.com/ITISFoundation/osparc-dask-gateway/actions/workflows/gateway.yml)
+[![osparc-dask-gateway CI](https://github.com/ITISFoundation/osparc-dask-gateway/actions/workflows/gateway.yml/badge.svg)](https://github.com/ITISFoundation/osparc-dask-gateway/actions/workflows/gateway.yml)
+
+[![codecov](https://codecov.io/gh/ITISFoundation/osparc-dask-gateway/branch/master/graph/badge.svg?token=I637tqTNuI)](https://codecov.io/gh/ITISFoundation/osparc-dask-gateway)
 
 ## gateway
 
