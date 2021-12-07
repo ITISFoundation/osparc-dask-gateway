@@ -62,7 +62,7 @@ def _create_service_parameters(
     env = deepcopy(worker_env)
     env.update(
         {
-            "DASK_SCHEDULER_ADDRESS": scheduler_address,
+            "DASK_SCHEDULER_URL": scheduler_address,
             # "DASK_NTHREADS": nthreads,
             # "DASK_MEMORY_LIMIT": memory_limit,
             "DASK_WORKER_NAME": service_name,
@@ -92,7 +92,7 @@ def _create_service_parameters(
         "Env": env,
         "Image": settings.COMPUTATIONAL_SIDECAR_IMAGE,
         "Init": True,
-        "Mounts": mounts,
+        "Mounts": mounts,        
     }
     return {
         "name": service_name,
@@ -101,6 +101,7 @@ def _create_service_parameters(
             "RestartPolicy": {"Condition": "on-failure"},
         },
         "networks": [network_id],
+        "mode": {"Global":{}}
     }
 
 
@@ -188,7 +189,7 @@ class OsparcBackend(LocalBackend):
 
                 # wait until the service is started
                 self.log.info(
-                    "---> Service started, waiting for service %s to start...",
+                    "---> Service started, waiting for service %s to run...",
                     service_name,
                 )
                 while not await _is_task_running(

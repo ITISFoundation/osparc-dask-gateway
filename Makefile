@@ -158,7 +158,8 @@ rows="%-22s | %40s | %12s | %12s\n";\
 TableWidth=100;\
 printf "%22s | %40s | %12s | %12s\n" Name Endpoint User Password;\
 printf "%.$${TableWidth}s\n" "$$separator";\
-printf "$$rows" Portainer 'http://$(get_my_ip):9000' admin adminadmin;
+printf "$$rows" Portainer 'http://$(get_my_ip):9000' admin adminadmin;\
+printf "$$rows" Dask-Gateway 'http://$(get_my_ip):8000' whatever asdf;
 endef
 
 show-endpoints:
