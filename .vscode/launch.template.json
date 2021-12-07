@@ -27,7 +27,7 @@
       "name": "Python: Module",
       "type": "python",
       "request": "launch",
-      "module": "osparc_dask_gateway",
+      "module": "osparc-gateway-server",
       "args": [
         "-f",
         "config/config.py"

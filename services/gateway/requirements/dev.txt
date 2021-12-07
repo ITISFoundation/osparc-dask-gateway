@@ -1,7 +1,0 @@
---requirement _base.txt
---requirement _test.txt
-
-watchdog[watchmedo]
-black
-
---editable .

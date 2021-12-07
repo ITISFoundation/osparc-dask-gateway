@@ -1,5 +1,0 @@
---constraint ./_base.txt
-
-coverage
-pytest
-pytest-cov

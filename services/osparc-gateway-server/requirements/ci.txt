@@ -1,0 +1,18 @@
+# Shortcut to install all packages for the contigous integration (CI) of 'services/director-v2'
+#
+# - As ci.txt but w/ tests
+#
+# Usage:
+#   pip install -r requirements/ci.txt
+#
+
+
+# installs base + tests requirements
+--requirement _base.txt
+--requirement _test.txt
+
+# installs this repo's packages
+git+https://github.com/ITISFoundation/osparc-simcore.git@8d0ad6ab9ca27e41c830b5a63a6ee68b2241bbff#egg=pytest-simcore&subdirectory=packages/pytest-simcore
+
+# installs current package
+.
