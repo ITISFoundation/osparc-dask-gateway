@@ -11,8 +11,8 @@ RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM" > /log \
 LABEL maintainer=mguidon,sanderegg
 
 # libffi-dev is needed for ARM architectures
-RUN  --mount=type=cache,id=base-cache,target=/var/cache/apt,mode=0755 \
-  --mount=type=cache,id=base-apt,target=/var/lib/apt,mode=0755 \
+RUN  --mount=type=cache,id=basecache,target=/var/cache/apt,mode=0755,sharing=locked \
+  --mount=type=cache,id=baseapt,target=/var/lib/apt,mode=0755,sharing=locked \
   set -eux \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -64,8 +64,8 @@ FROM base as build
 ENV SC_BUILD_TARGET=build
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
-RUN  --mount=type=cache,id=build-cache,target=/var/cache/apt,mode=0755 \
-  --mount=type=cache,id=build-apt,target=/var/lib/apt,mode=0755 \
+RUN  --mount=type=cache,id=build-cache,target=/var/cache/apt,mode=0755,sharing=locked \
+  --mount=type=cache,id=build-apt,target=/var/lib/apt,mode=0755,sharing=locked \
   apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
