@@ -112,6 +112,7 @@ jobs:
 
   build:
     timeout-minutes: 10
+    needs: [unit-test, integration-test]
     strategy:
       matrix:
         python: [3.8]
