@@ -1,4 +1,4 @@
---constraint ./constraints.txt
+--requirement ./_dask-distributed.txt
 
 aiodocker
 bokeh

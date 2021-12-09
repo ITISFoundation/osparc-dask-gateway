@@ -67,8 +67,8 @@ def _create_service_parameters(
             # "DASK_NTHREADS": nthreads,
             # "DASK_MEMORY_LIMIT": memory_limit,
             # "DASK_WORKER_NAME": service_name,
-            "SIDECAR_COMP_SERVICES_SHARED_FOLDER": settings.GATEWAY_WORK_FOLDER,
-            "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": settings.GATEWAY_VOLUME_NAME,
+            "SIDECAR_COMP_SERVICES_SHARED_FOLDER": "/home/scu/computational_data",
+            "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": settings.COMPUTATIONAL_SIDECAR_VOLUME_NAME,
             "LOG_LEVEL": settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
         }
     )
@@ -87,6 +87,13 @@ def _create_service_parameters(
             "Type": "volume",
             "ReadOnly": False,
         },
+        # the sidecar data data is stored in a volume
+        {
+            "Source": settings.COMPUTATIONAL_SIDECAR_VOLUME_NAME,
+            "Target": "/home/scu/computational_data",
+            "Type": "volume",
+            "ReadOnly": False,
+        },
     ]
 
     container_config = {
@@ -102,7 +109,7 @@ def _create_service_parameters(
             "RestartPolicy": {"Condition": "on-failure"},
         },
         "networks": [network_id],
-        "mode": {"Global": {}},
+        # "mode": {"Global": {}},
     }
 
 
@@ -124,7 +131,7 @@ class OsparcBackend(LocalBackend):
     )
 
     default_host = "0.0.0.0"
-    worker_start_timeout = 120
+    # worker_start_timeout = 120
 
     settings: AppSettings
 
@@ -146,7 +153,6 @@ class OsparcBackend(LocalBackend):
         port = scheduler_url.netloc.split(":")[1]
         netloc = f"{self.settings.GATEWAY_SERVER_NAME}:{port}"
         scheduler_address = urlunsplit(scheduler_url._replace(netloc=netloc))
-        scheduler_address = worker.cluster.scheduler_address
 
         # db_address = f"{self.default_host}:8787"
         workdir = worker.cluster.state.get("workdir")

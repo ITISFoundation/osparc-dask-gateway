@@ -20,6 +20,9 @@ class AppSettings(BaseSettings):
         description="The hostname of the gateway server in the GATEWAY_WORKERS_NETWORK network",
     )
 
+    COMPUTATIONAL_SIDECAR_VOLUME_NAME: str = Field(
+        ..., description="Named volume for the computational sidecars"
+    )
     COMPUTATIONAL_SIDECAR_IMAGE: str = Field(
         ..., description="The computational sidecar image in use"
     )
