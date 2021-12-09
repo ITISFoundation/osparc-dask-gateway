@@ -65,7 +65,7 @@ def _create_service_parameters(
             "DASK_SCHEDULER_URL": scheduler_address,
             # "DASK_NTHREADS": nthreads,
             # "DASK_MEMORY_LIMIT": memory_limit,
-            "DASK_WORKER_NAME": service_name,
+            # "DASK_WORKER_NAME": service_name,
             "SIDECAR_COMP_SERVICES_SHARED_FOLDER": settings.GATEWAY_WORK_FOLDER,
             "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": settings.GATEWAY_VOLUME_NAME,
             "LOG_LEVEL": settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
