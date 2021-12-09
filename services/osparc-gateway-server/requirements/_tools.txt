@@ -12,12 +12,12 @@ bump2version==1.0.1
     # via -r requirements/../../../requirements/devenv.txt
 cfgv==3.3.1
     # via pre-commit
-click==7.1.2
+click==8.0.3
     # via
     #   -c requirements/_base.txt
     #   black
     #   pip-tools
-distlib==0.3.3
+distlib==0.3.4
     # via virtualenv
 filelock==3.4.0
     # via virtualenv
@@ -44,15 +44,14 @@ platformdirs==2.4.0
     #   virtualenv
 pre-commit==2.16.0
     # via -r requirements/../../../requirements/devenv.txt
-pyyaml==5.4.1
+pyyaml==6.0
     # via
     #   -c requirements/../../../requirements/constraints.txt
     #   -c requirements/_base.txt
     #   pre-commit
     #   watchdog
-six==1.15.0
+six==1.16.0
     # via
-    #   -c requirements/_base.txt
     #   -c requirements/_test.txt
     #   virtualenv
 toml==0.10.2
@@ -64,7 +63,7 @@ tomli==1.2.2
     #   -c requirements/_test.txt
     #   black
     #   pep517
-typing-extensions==3.10.0.2 ; python_version < "3.9"
+typing-extensions==4.0.1
     # via
     #   -c requirements/_base.txt
     #   -c requirements/_test.txt
