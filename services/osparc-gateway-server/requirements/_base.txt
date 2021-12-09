@@ -56,8 +56,10 @@ frozenlist==1.2.0
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2021.11.1
-    # via dask
+fsspec==2021.10.1
+    # via
+    #   -c requirements/./constraints.txt
+    #   dask
 greenlet==1.1.2
     # via sqlalchemy
 heapdict==1.0.1
@@ -78,8 +80,10 @@ locket==0.2.1
     # via partd
 markupsafe==2.0.1
     # via jinja2
-msgpack==1.0.3
-    # via distributed
+msgpack==1.0.2
+    # via
+    #   -c requirements/./constraints.txt
+    #   distributed
 multidict==5.2.0
     # via
     #   aiohttp
@@ -115,8 +119,9 @@ sqlalchemy==1.4.27
     # via -r requirements/_base.in
 tblib==1.7.0
     # via distributed
-toolz==0.11.2
+toolz==0.11.1
     # via
+    #   -c requirements/./constraints.txt
     #   dask
     #   distributed
     #   partd
