@@ -140,7 +140,7 @@ COPY --chown=scu:scu services/osparc-gateway-server/config services/osparc-gatew
 #   --start-period=10s \
 #   --retries=3 \
 #   CMD ["curl", "-Lf", "http://127.0.0.1:8787/health"]
-
+RUN chmod +x services/osparc-gateway-server/docker/*.sh
 ENTRYPOINT [ "/bin/sh", "services/osparc-gateway-server/docker/entrypoint.sh" ]
 CMD ["/bin/sh", "services/osparc-gateway-server/docker/boot.sh"]
 
