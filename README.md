@@ -1,4 +1,4 @@
-# osparc-dask-gatway
+# oSparc-Dask-Gateway
 
 [![osparc-dask-gateway CI](https://github.com/ITISFoundation/osparc-dask-gateway/actions/workflows/gateway.yml/badge.svg)](https://github.com/ITISFoundation/osparc-dask-gateway/actions/workflows/gateway.yml)
 
