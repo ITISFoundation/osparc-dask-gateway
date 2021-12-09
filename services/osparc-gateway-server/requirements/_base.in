@@ -1,4 +1,4 @@
---constraint ./_constraints.txt
+--constraint ./constraints.txt
 
 aiodocker
 bokeh

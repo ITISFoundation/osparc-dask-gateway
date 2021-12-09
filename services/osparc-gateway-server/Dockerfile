@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG PYTHON_VERSION="3.8.12"
+ARG PYTHON_VERSION="3.7.12"
 FROM --platform=${TARGETPLATFORM} python:${PYTHON_VERSION}-buster as base
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
