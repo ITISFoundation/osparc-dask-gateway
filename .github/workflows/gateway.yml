@@ -151,7 +151,7 @@ jobs:
       - name: build and deploy image for multi-arch
         if: github.event_name == 'push'
         env:
-          DOCKER_TARGET_PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+          DOCKER_TARGET_PLATFORMS: linux/amd64,linux/arm/v7
           DOCKER_REGISTRY: ${{ secrets.DOCKER_IMAGE_PATH }}
         run: |
           pushd services/osparc-gateway-server && \
@@ -160,7 +160,7 @@ jobs:
       - name: build image for multi-arch
         if: github.event_name == 'pull_request'
         env:
-          DOCKER_TARGET_PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+          DOCKER_TARGET_PLATFORMS: linux/amd64,linux/arm/v7
         run: |
           pushd services/osparc-gateway-server && \
           make build && \
