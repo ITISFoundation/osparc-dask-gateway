@@ -111,7 +111,7 @@ jobs:
           flags: integrationtests #optional
 
   build:
-    timeout-minutes: 10
+    timeout-minutes: 30
     needs: [unit-test, integration-test]
     strategy:
       matrix:
