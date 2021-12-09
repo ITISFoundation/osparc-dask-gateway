@@ -145,13 +145,13 @@ async def gateway_client(
         auth=BasicAuth(username="pytest_user", password=PASSWORD),
     ) as gateway:
         assert gateway
-        print(f"--> {gateway=} created")
+        print(f"--> {gateway} created")
         cluster_options = await gateway.cluster_options()
         gateway_versions = await gateway.get_versions()
         clusters_list = await gateway.list_clusters()
-        print(f"--> {gateway_versions=}, {cluster_options=}, {clusters_list=}")
+        print(f"--> {gateway_versions}, {cluster_options}, {clusters_list}")
         for option in cluster_options.items():
-            print(f"--> {option=}")
+            print(f"--> {option}")
         yield gateway
 
 

@@ -31,9 +31,9 @@ async def docker_service(
         task_template=TaskTemplate, name="my_service"
     )
     assert service
-    print(f"--> created docker service {service=}")
+    print(f"--> created docker service {service}")
     inspected_service = await async_docker_client.services.inspect(service["ID"])
-    print(f"--> service inspected returned {inspected_service=}")
+    print(f"--> service inspected returned {inspected_service}")
     yield inspected_service
     # cleanup
     await async_docker_client.services.delete(service["ID"])
