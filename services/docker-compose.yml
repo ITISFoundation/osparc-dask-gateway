@@ -14,6 +14,7 @@ services:
       - GATEWAY_VOLUME_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_gateway_data
       - GATEWAY_WORKERS_NETWORK=dask_net
       - GATEWAY_SERVER_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_osparc-gateway-server
+      - COMPUTATIONAL_SIDECAR_VOLUME_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_sidecar_data
       - COMPUTATIONAL_SIDECAR_IMAGE=${COMPUTATIONAL_SIDECAR_IMAGE:-local/dask-sidecar:production}
       - COMPUTATIONAL_SIDECAR_LOG_LEVEL=${COMPUTATIONAL_SIDECAR_LOG_LEVEL:-WARNING}
 
@@ -38,8 +39,10 @@ services:
 
 networks:
   dask_net: null
+
   volume-sync:
     driver: overlay
 
 volumes:
   gateway_data: null
+  sidecar_data: null
