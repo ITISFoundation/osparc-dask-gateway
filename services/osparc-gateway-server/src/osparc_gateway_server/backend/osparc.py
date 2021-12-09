@@ -123,6 +123,7 @@ class OsparcBackend(LocalBackend):
     )
 
     default_host = "0.0.0.0"
+    worker_start_timeout = 120
 
     settings: AppSettings
 
