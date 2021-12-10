@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        python: [3.7]
+        python: [3.9]
         os: [ubuntu-20.04]
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -74,7 +74,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        python: [3.7]
+        python: [3.9]
         os: [ubuntu-20.04]
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -115,7 +115,7 @@ jobs:
     needs: [unit-test, integration-test]
     strategy:
       matrix:
-        python: [3.7]
+        python: [3.9]
         os: [ubuntu-20.04]
         docker_buildx: [v0.7.0]
       fail-fast: false
