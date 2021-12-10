@@ -24,7 +24,7 @@ async def _is_task_running(
     tasks = await docker_client.tasks.list(filters={"service": service_name})
     tasks_current_state = [task["Status"]["State"] for task in tasks]
     logger.info(
-        "%s current service task states are %s", service_name, f"{tasks_current_state}"
+        "%s current service task states are %s", service_name, f"{tasks_current_state=}"
     )
     num_running = sum(current == "running" for current in tasks_current_state)
     return num_running == 1
@@ -34,7 +34,7 @@ async def _get_docker_network_id(
     docker_client: Docker, network_name: str, logger: logging.Logger
 ) -> str:
     # try to find the network name (usually named STACKNAME_default)
-    logger.debug("finding network id for network %s", network_name)
+    logger.debug("finding network id for network %s", f"{network_name=}")
     networks = [
         x
         for x in (await docker_client.networks.list())
@@ -44,9 +44,9 @@ async def _get_docker_network_id(
         logger.error(
             "Swarm network name is not configured, found following networks "
             "(if there is more then 1 network, remove the one which has no "
-            f"containers attached and all is fixed): {networks}"
+            f"containers attached and all is fixed): {networks=}"
         )
-    logger.debug("found a network %s", f"{networks[0]}")
+    logger.debug("found a network %s", f"{networks[0]=}")
     assert "Id" in networks[0]  # nosec
     assert isinstance(networks[0]["Id"], str)  # nosec
     return networks[0]["Id"]
@@ -146,7 +146,7 @@ class OsparcBackend(LocalBackend):
     async def do_start_worker(
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        self.log.debug("received call to start worker as %s", f"{worker}")
+        self.log.debug("received call to start worker as %s", f"{worker=}")
 
         scheduler_url = urlsplit(worker.cluster.scheduler_address)
         # scheduler_host = scheduler_url.netloc.split(":")[0]
@@ -160,7 +160,7 @@ class OsparcBackend(LocalBackend):
         # nthreads, memory_limit = self.worker_nthreads_memory_limit_args(worker.cluster)
 
         workdir = worker.cluster.state.get("workdir")
-        self.log.debug("workdir set as %s", f"{workdir}")
+        self.log.debug("workdir set as %s", f"{workdir=}")
 
         service_parameters = None
         try:
@@ -184,7 +184,7 @@ class OsparcBackend(LocalBackend):
                     "Using parameters %s", json.dumps(service_parameters, indent=2)
                 )
                 service = await docker_client.services.create(**service_parameters)
-                self.log.info("Service %s started: %s", service_name, f"{service}")
+                self.log.info("Service %s started: %s", service_name, f"{service=}")
                 yield {"service_id": service["ID"]}
 
                 # get the full info from docker
@@ -225,34 +225,35 @@ class OsparcBackend(LocalBackend):
             raise
 
     async def do_stop_worker(self, worker: Worker) -> None:
-        self.log.debug("Calling to stop worker %s", f"{worker}")
+        self.log.debug("Calling to stop worker %s", f"{worker=}")
         service_id = worker.state.get("service_id")
         if service_id:
             self.log.info("Stopping service %s", f"{service_id}")
             try:
                 async with Docker() as docker_client:
                     await docker_client.services.delete(service_id)
-                self.log.info("service %s stopped", f"{service_id}")
+                self.log.info("service %s stopped", f"{service_id=}")
 
             except DockerContainerError:
                 self.log.exception(
-                    "Error while stopping service with id %s", service_id
+                    "Error while stopping service with id %s", f"{service_id=}"
                 )
         else:
             self.log.error(
-                "Worker %s does not have a service id! That is not expected!", worker
+                "Worker %s does not have a service id! That is not expected!",
+                f"{worker=}",
             )
 
     async def _check_service_status(self, worker: Worker) -> bool:
-        self.log.debug("checking worker status: %s", f"{worker}")
+        self.log.debug("checking worker status: %s", f"{worker=}")
         service_id = worker.state.get("service_id")
         if service_id:
-            self.log.debug("checking worker %s status", service_id)
+            self.log.debug("checking worker %s status", f"{service_id=}")
             try:
                 async with Docker() as docker_client:
                     service = await docker_client.services.inspect(service_id)
                     self.log.debug(
-                        "checking worker %s associated service", f"{service}"
+                        "checking worker %s associated service", f"{service=}"
                     )
                     if service:
                         service_name = service["Spec"]["Name"]
@@ -262,19 +263,19 @@ class OsparcBackend(LocalBackend):
 
             except DockerContainerError:
                 self.log.exception(
-                    "Error while checking container with id %s", service_id
+                    "Error while checking container with id %s", f"{service_id=}"
                 )
         self.log.error(
-            "Worker %s does not have a service id! That is not expected!", worker
+            "Worker %s does not have a service id! That is not expected!", f"{worker=}"
         )
         return False
 
     async def do_check_workers(self, workers: List[Worker]) -> List[bool]:
-        self.log.debug("--> checking workers statuses: %s", f"{workers}")
+        self.log.debug("--> checking workers statuses: %s", f"{workers=}")
         ok = await asyncio.gather(
             *[self._check_service_status(w) for w in workers], return_exceptions=True
         )
-        self.log.debug("<-- worker status returned: %s", f"{ok}")
+        self.log.debug("<-- worker status returned: %s", f"{ok=}")
         return ok
 
 
