@@ -62,6 +62,19 @@ async def gateway_volume_name(
             await volume.delete()
         print(f"<-- volume '{_VOLUME_NAME}' deleted")
 
+@pytest.fixture
+async def computational_volume_name(
+    async_docker_client: aiodocker.Docker,
+) -> AsyncIterator[str]:
+    _VOLUME_NAME = "pytest_computational_volume"
+    volume = await async_docker_client.volumes.create(config={"Name": _VOLUME_NAME})
+    assert volume
+    yield _VOLUME_NAME
+    async for attempt in AsyncRetrying(reraise=True, wait=wait_fixed(1)):
+        with attempt:
+            print(f"<-- deleting volume '{_VOLUME_NAME}'...")
+            await volume.delete()
+        print(f"<-- volume '{_VOLUME_NAME}' deleted")
 
 def get_ip() -> str:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -78,20 +91,18 @@ def get_ip() -> str:
 
 @pytest.fixture
 def minimal_config(
-    docker_swarm, monkeypatch, gateway_workers_network: str, gateway_volume_name: str
+    docker_swarm, monkeypatch, gateway_workers_network: str, gateway_volume_name: str, computational_volume_name: str
 ):
     monkeypatch.setenv("GATEWAY_VOLUME_NAME", gateway_volume_name)
     monkeypatch.setenv("GATEWAY_WORK_FOLDER", "/tmp/pytest_work_folder")
     monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", gateway_workers_network)
     monkeypatch.setenv("GATEWAY_SERVER_NAME", get_ip())
+    monkeypatch.setenv("COMPUTATIONAL_SIDECAR_VOLUME_NAME", computational_volume_name)
     monkeypatch.setenv(
         "COMPUTATIONAL_SIDECAR_IMAGE",
         "itisfoundation/dask-sidecar:master-github-latest",
     )
-    monkeypatch.setenv(
-        "COMPUTATIONAL_SIDECAR_IMAGE",
-        "local/dask-sidecar:production",
-    )
+    
 
 
 class DaskGatewayServer(NamedTuple):
