@@ -134,14 +134,20 @@ class OsparcBackend(LocalBackend):
     # worker_start_timeout = 120
 
     settings: AppSettings
+    docker_client: Docker
 
     async def do_setup(self) -> None:
         await super().do_setup()
         self.settings = AppSettings()
+        self.docker_client = Docker()
         self.log.info(
             "osparc-gateway-server application settings:\n%s",
             self.settings.json(indent=2),
         )
+
+    async def do_cleanup(self) -> None:
+        await super().do_cleanup()
+        await self.docker_client.close()
 
     async def do_start_worker(
         self, worker: Worker
