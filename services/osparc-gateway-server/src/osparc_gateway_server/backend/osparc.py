@@ -38,7 +38,7 @@ async def _get_docker_network_id(
     networks = [
         x
         for x in (await docker_client.networks.list())
-        if "swarm" in x["Scope"] and network_name in x["Name"]
+        if "swarm" in x["Scope"] and network_name == x["Name"]
     ]
     logger.debug(f"found the following swarm networks: {networks=}")
     if not networks:

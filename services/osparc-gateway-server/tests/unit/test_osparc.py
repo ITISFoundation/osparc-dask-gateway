@@ -1,15 +1,19 @@
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
 
-from typing import Any, AsyncIterator, Dict, NewType
+import asyncio
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict
 from unittest import mock
 
 import aiodocker
 import pytest
+from faker import Faker
 from osparc_gateway_server.backend.osparc import (
+    _create_service_parameters,
     _get_docker_network_id,
     _is_task_running,
 )
+from osparc_gateway_server.backend.settings import AppSettings
 from pytest_mock.plugin import MockerFixture
 from tenacity._asyncio import AsyncRetrying
 from tenacity.stop import stop_after_delay
@@ -23,6 +27,9 @@ def minimal_config(monkeypatch):
     monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", "atestnetwork")
     monkeypatch.setenv("GATEWAY_SERVER_NAME", "atestserver")
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_IMAGE", "test/localpytest:latest")
+    monkeypatch.setenv(
+        "COMPUTATIONAL_SIDECAR_VOLUME_NAME", "sidecar_computational_volume_name"
+    )
 
 
 @pytest.fixture
@@ -94,15 +101,24 @@ async def test_is_task_running(
 
 
 @pytest.fixture
-async def docker_swarm_network(
-    async_docker_client: aiodocker.Docker, network_driver: str
-) -> AsyncIterator[Dict[str, Any]]:
-    network: aiodocker.docker.DockerNetwork = await async_docker_client.networks.create(
-        config={"Name": "pytest_docker_swarm_network", "Driver": network_driver}
-    )
-    yield await network.show()
+async def docker_network(
+    async_docker_client: aiodocker.Docker, network_driver: str, faker: Faker
+) -> AsyncIterator[Callable[..., Awaitable[Dict[str, Any]]]]:
+    networks = []
+
+    async def creator(**network_config_kwargs) -> Dict[str, Any]:
+        network: aiodocker.docker.DockerNetwork = (
+            await async_docker_client.networks.create(
+                config={"Name": faker.uuid4(), "Driver": network_driver}
+                | network_config_kwargs
+            )
+        )
+        networks.append(network)
+        return await network.show()
+
+    yield creator
     # cleanup
-    await network.delete()
+    await asyncio.gather(*[network.delete() for network in networks])
 
 
 @pytest.mark.parametrize(
@@ -111,7 +127,7 @@ async def docker_swarm_network(
 async def test_get_network_id(
     docker_swarm,
     async_docker_client: aiodocker.Docker,
-    docker_swarm_network: Dict[str, Any],
+    docker_network: Callable[..., Awaitable[Dict[str, Any]]],
     mocked_logger: mock.MagicMock,
     expected_found: bool,
 ):
@@ -120,13 +136,39 @@ async def test_get_network_id(
         await _get_docker_network_id(
             async_docker_client, "a_fake_network_name", mocked_logger
         )
+    # create 1 network
+    network1 = await docker_network()
     if expected_found:
         network_id = await _get_docker_network_id(
-            async_docker_client, docker_swarm_network["Name"], mocked_logger
+            async_docker_client, network1["Name"], mocked_logger
         )
-        assert network_id == docker_swarm_network["Id"]
+        assert network_id == network1["Id"]
     else:
         with pytest.raises(ValueError):
             await _get_docker_network_id(
-                async_docker_client, "a_fake_network_name", mocked_logger
+                async_docker_client, network1["Name"], mocked_logger
             )
+
+
+def test_create_service_parameters(minimal_config: None, faker: Faker):
+    settings = AppSettings()
+    worker_env = faker.pydict()
+    service_name = faker.name()
+    network_id = faker.uuid4()
+    scheduler_address = faker.uri()
+    service_parameters = _create_service_parameters(
+        settings=settings,
+        worker_env=worker_env,
+        service_name=service_name,
+        network_id=network_id,
+        scheduler_address=scheduler_address,
+    )
+    assert service_parameters
+    assert service_parameters["name"] == service_name
+    assert network_id in service_parameters["networks"]
+    for env_key, env_value in worker_env.items():
+        assert env_key in service_parameters["task_template"]["ContainerSpec"]["Env"]
+        assert (
+            service_parameters["task_template"]["ContainerSpec"]["Env"][env_key]
+            == env_value
+        )
