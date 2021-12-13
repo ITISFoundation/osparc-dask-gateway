@@ -53,8 +53,8 @@ class OsparcBackend(LocalBackend):
         await super().do_cleanup()
         await self.docker_client.close()
 
-    async def do_start_cluster(self, cluster) -> AsyncGenerator[Dict[str, Any], None]:
-        return await super().do_start_cluster(cluster)
+    # async def do_start_cluster(self, cluster) -> AsyncGenerator[Dict[str, Any], None]:
+    #     return await super().do_start_cluster(cluster)
 
     async def do_start_worker(
         self, worker: Worker
