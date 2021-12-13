@@ -1,0 +1,41 @@
+codecov:
+  require_ci_to_pass: true
+  branch: master
+
+coverage:
+  precision: 1
+  round: down
+  range: "70...100"
+
+  status:
+    project:
+      default:
+        informational: true
+        threshold: 1%
+        paths:
+          - services
+      services:
+        informational: true
+        threshold: 1%
+        paths:
+          - services
+
+    patch:
+      default:
+        informational: true
+        threshold: 1%
+        paths:
+          - services
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      macro: no
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
