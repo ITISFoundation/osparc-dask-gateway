@@ -40,11 +40,12 @@ async def _get_docker_network_id(
         for x in (await docker_client.networks.list())
         if "swarm" in x["Scope"] and network_name in x["Name"]
     ]
-    if not networks or len(networks) > 1:
-        logger.error(
-            "Swarm network name is not configured, found following networks "
-            "(if there is more then 1 network, remove the one which has no "
-            f"containers attached and all is fixed): {networks=}"
+    logger.debug(f"found the following swarm networks: {networks=}")
+    if not networks:
+        raise ValueError(f"network {network_name} not found")
+    if len(networks) > 1:
+        raise ValueError(
+            f"network {network_name} is ambiguous, too many network founds: {networks=}"
         )
     logger.debug("found a network %s", f"{networks[0]=}")
     assert "Id" in networks[0]  # nosec

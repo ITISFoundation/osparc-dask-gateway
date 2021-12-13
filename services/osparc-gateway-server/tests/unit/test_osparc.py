@@ -2,10 +2,14 @@
 # pylint: disable=redefined-outer-name
 
 from typing import Any, AsyncIterator, Dict
+from unittest import mock
 
 import aiodocker
 import pytest
-from osparc_gateway_server.backend.osparc import _is_task_running
+from osparc_gateway_server.backend.osparc import (
+    _get_docker_network_id,
+    _is_task_running,
+)
 from pytest_mock.plugin import MockerFixture
 from tenacity._asyncio import AsyncRetrying
 from tenacity.stop import stop_after_delay
@@ -63,17 +67,37 @@ async def running_service(
     raise AssertionError(f"service {docker_service=} could not start")
 
 
+@pytest.fixture
+def mocked_logger(mocker: MockerFixture) -> mock.MagicMock:
+    return mocker.MagicMock()
+
+
 async def test_is_task_running(
     docker_swarm,
     minimal_config,
     async_docker_client: aiodocker.Docker,
     running_service: Dict[str, Any],
-    mocker: MockerFixture,
+    mocked_logger: mock.MagicMock,
 ):
-    mocked_logger = mocker.MagicMock()
+
+    # this service exists and run
     assert (
         await _is_task_running(
             async_docker_client, running_service["Spec"]["Name"], mocked_logger
         )
         == True
     )
+
+    # check unknown service raises error
+    with pytest.raises(aiodocker.DockerError):
+        await _is_task_running(async_docker_client, "unknown_service", mocked_logger)
+
+
+async def test_get_network_id(
+    async_docker_client: aiodocker.Docker,
+    mocked_logger: mock.MagicMock,
+):
+    with pytest.raises(ValueError):
+        await _get_docker_network_id(
+            async_docker_client, "a_fake_network_name", mocked_logger
+        )
