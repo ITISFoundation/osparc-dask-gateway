@@ -1,7 +1,7 @@
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
 
-from typing import Any, AsyncIterator, Dict
+from typing import Any, AsyncIterator, Dict, NewType
 from unittest import mock
 
 import aiodocker
@@ -93,11 +93,40 @@ async def test_is_task_running(
         await _is_task_running(async_docker_client, "unknown_service", mocked_logger)
 
 
+@pytest.fixture
+async def docker_swarm_network(
+    async_docker_client: aiodocker.Docker, network_driver: str
+) -> AsyncIterator[Dict[str, Any]]:
+    network: aiodocker.docker.DockerNetwork = await async_docker_client.networks.create(
+        config={"Name": "pytest_docker_swarm_network", "Driver": network_driver}
+    )
+    yield await network.show()
+    # cleanup
+    await network.delete()
+
+
+@pytest.mark.parametrize(
+    "network_driver, expected_found", [("bridge", False), ("overlay", True)]
+)
 async def test_get_network_id(
+    docker_swarm,
     async_docker_client: aiodocker.Docker,
+    docker_swarm_network: Dict[str, Any],
     mocked_logger: mock.MagicMock,
+    expected_found: bool,
 ):
+    # wrong name shall raise
     with pytest.raises(ValueError):
         await _get_docker_network_id(
             async_docker_client, "a_fake_network_name", mocked_logger
         )
+    if expected_found:
+        network_id = await _get_docker_network_id(
+            async_docker_client, docker_swarm_network["Name"], mocked_logger
+        )
+        assert network_id == docker_swarm_network["Id"]
+    else:
+        with pytest.raises(ValueError):
+            await _get_docker_network_id(
+                async_docker_client, "a_fake_network_name", mocked_logger
+            )
