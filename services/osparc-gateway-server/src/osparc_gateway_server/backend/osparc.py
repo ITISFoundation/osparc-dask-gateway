@@ -53,8 +53,14 @@ class OsparcBackend(LocalBackend):
         await super().do_cleanup()
         await self.docker_client.close()
 
-    # async def do_start_cluster(self, cluster) -> AsyncGenerator[Dict[str, Any], None]:
-    #     return await super().do_start_cluster(cluster)
+    async def do_start_cluster(self, cluster) -> AsyncGenerator[Dict[str, Any], None]:
+        cluster_name = cluster.name
+        tls_cert_path, tls_key_path = self.get_tls_paths(cluster)
+        _TLS_CERT_SECRET_NAME = f"{cluster_name}-dask_tls_cert"
+        _TLS_KEY_SECRET_NAME = f"{cluster_name}-dask_tls_key"
+
+        async for result in super().do_start_cluster(cluster):
+            yield result
 
     async def do_start_worker(
         self, worker: Worker

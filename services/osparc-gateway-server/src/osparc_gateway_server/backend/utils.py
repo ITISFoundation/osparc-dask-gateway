@@ -1,7 +1,9 @@
 import logging
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict
 
+import aiodocker
 from aiodocker import Docker
 
 from .settings import AppSettings
@@ -101,3 +103,14 @@ def create_service_config(
         "networks": [network_id],
         # "mode": {"Global": {}},
     }
+
+
+async def create_or_update_secret(
+    docker_client: aiodocker.Docker, secret_name: str, file_path: Path
+):
+    secrets = await docker_client.secrets.list(filters={"name": secret_name})
+    if not secrets:
+        await docker_client.secrets.create(name=secret_name)
+    else:
+        secret = secrets[0]
+        await docker_client.secrets.update(secret["ID"])

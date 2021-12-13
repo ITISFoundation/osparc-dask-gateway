@@ -59,6 +59,7 @@ async def test_cluster_start_stop(minimal_config, gateway_client: Gateway):
         clusters = await gateway_client.list_clusters()
         assert len(clusters)
         assert clusters[0].name == cluster.name
+        print(f"found cluster: {clusters[0]=}")
 
         # Shutdown the cluster
         await cluster.shutdown()  # type: ignore
