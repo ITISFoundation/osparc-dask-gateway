@@ -170,55 +170,54 @@ class OsparcBackend(LocalBackend):
 
         service_parameters = None
         try:
-            async with Docker() as docker_client:
-                # find service parameters
-                network_id = await _get_docker_network_id(
-                    docker_client, self.settings.GATEWAY_WORKERS_NETWORK, self.log
-                )
-                service_name = worker.name
-                service_parameters = _create_service_parameters(
-                    self.settings,
-                    self.get_worker_env(worker.cluster),
-                    service_name,
-                    network_id,
-                    scheduler_address,
-                )
+            # find service parameters
+            network_id = await _get_docker_network_id(
+                self.docker_client, self.settings.GATEWAY_WORKERS_NETWORK, self.log
+            )
+            service_name = worker.name
+            service_parameters = _create_service_parameters(
+                self.settings,
+                self.get_worker_env(worker.cluster),
+                service_name,
+                network_id,
+                scheduler_address,
+            )
 
-                # start service
-                self.log.info("Starting service %s", service_name)
-                self.log.debug(
-                    "Using parameters %s", json.dumps(service_parameters, indent=2)
-                )
-                service = await docker_client.services.create(**service_parameters)
-                self.log.info("Service %s started: %s", service_name, f"{service=}")
+            # start service
+            self.log.info("Starting service %s", service_name)
+            self.log.debug(
+                "Using parameters %s", json.dumps(service_parameters, indent=2)
+            )
+            service = await self.docker_client.services.create(**service_parameters)
+            self.log.info("Service %s started: %s", service_name, f"{service=}")
+            yield {"service_id": service["ID"]}
+
+            # get the full info from docker
+            service = await self.docker_client.services.inspect(service["ID"])
+            self.log.debug(
+                "Service %s inspection: %s",
+                service_name,
+                f"{json.dumps(service, indent=2)}",
+            )
+
+            # wait until the service is started
+            self.log.info(
+                "---> Service started, waiting for service %s to run...",
+                service_name,
+            )
+            while not await _is_task_running(
+                self.docker_client, service["Spec"]["Name"], self.log
+            ):
                 yield {"service_id": service["ID"]}
+                await asyncio.sleep(1)
 
-                # get the full info from docker
-                service = await docker_client.services.inspect(service["ID"])
-                self.log.debug(
-                    "Service %s inspection: %s",
-                    service_name,
-                    f"{json.dumps(service, indent=2)}",
-                )
-
-                # wait until the service is started
-                self.log.info(
-                    "---> Service started, waiting for service %s to run...",
-                    service_name,
-                )
-                while not await _is_task_running(
-                    docker_client, service["Spec"]["Name"], self.log
-                ):
-                    yield {"service_id": service["ID"]}
-                    await asyncio.sleep(1)
-
-                # we are done, the service is started
-                self.log.info(
-                    "---> Service %s is started, and has ID %s",
-                    worker.name,
-                    service["ID"],
-                )
-                yield {"service_id": service["ID"]}
+            # we are done, the service is started
+            self.log.info(
+                "---> Service %s is started, and has ID %s",
+                worker.name,
+                service["ID"],
+            )
+            yield {"service_id": service["ID"]}
 
         except (DockerContainerError, DockerError):
             self.log.exception(
@@ -236,8 +235,7 @@ class OsparcBackend(LocalBackend):
         if service_id:
             self.log.info("Stopping service %s", f"{service_id}")
             try:
-                async with Docker() as docker_client:
-                    await docker_client.services.delete(service_id)
+                await self.docker_client.services.delete(service_id)
                 self.log.info("service %s stopped", f"{service_id=}")
 
             except DockerContainerError:
@@ -256,16 +254,13 @@ class OsparcBackend(LocalBackend):
         if service_id:
             self.log.debug("checking worker %s status", f"{service_id=}")
             try:
-                async with Docker() as docker_client:
-                    service = await docker_client.services.inspect(service_id)
-                    self.log.debug(
-                        "checking worker %s associated service", f"{service=}"
+                service = await self.docker_client.services.inspect(service_id)
+                self.log.debug("checking worker %s associated service", f"{service=}")
+                if service:
+                    service_name = service["Spec"]["Name"]
+                    return await _is_task_running(
+                        self.docker_client, service_name, self.log
                     )
-                    if service:
-                        service_name = service["Spec"]["Name"]
-                        return await _is_task_running(
-                            docker_client, service_name, self.log
-                        )
 
             except DockerContainerError:
                 self.log.exception(
