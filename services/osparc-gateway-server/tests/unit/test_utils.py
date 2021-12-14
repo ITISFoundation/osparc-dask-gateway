@@ -12,6 +12,7 @@ from dask_gateway_server.backends.db_base import Cluster, JobStatus
 from faker import Faker
 from osparc_gateway_server.backend.settings import AppSettings
 from osparc_gateway_server.backend.utils import (
+    DockerSecret,
     create_or_update_secret,
     create_service_config,
     delete_secrets,
@@ -155,13 +156,13 @@ def test_create_service_parameters(minimal_config: None, faker: Faker):
     worker_env = faker.pydict()
     service_name = faker.name()
     network_id = faker.uuid4()
-    scheduler_address = faker.uri()
+    secrets = []
     service_parameters = create_service_config(
         settings=settings,
         worker_env=worker_env,
         service_name=service_name,
         network_id=network_id,
-        scheduler_address=scheduler_address,
+        secrets=secrets,
     )
     assert service_parameters
     assert service_parameters["name"] == service_name
@@ -197,27 +198,41 @@ async def test_create_or_update_docker_secrets(
     file_original_size = fake_secret_file.stat().st_size
     # check secret creation
     secret_name = faker.pystr()
-    created_secret_id = await create_or_update_secret(
-        async_docker_client, secret_name, fake_secret_file, fake_cluster
+    worker_env = ["some_fake_env_related_to_secret_for_worker"]
+    scheduler_env = ["some_fake_env_related_to_secret_for_scheduler"]
+    created_secret: DockerSecret = await create_or_update_secret(
+        async_docker_client,
+        secret_name,
+        fake_secret_file,
+        fake_cluster,
+        worker_env,
+        scheduler_env,
     )
-    secrets = await async_docker_client.secrets.list()
-    assert len(secrets) == 1
-    created_secret = secrets[0]
-    assert created_secret["ID"] == created_secret_id
-    assert created_secret["Spec"]["Name"] == secret_name
-    assert "cluster_id" in created_secret["Spec"]["Labels"]
-    assert created_secret["Spec"]["Labels"]["cluster_id"] == fake_cluster.id
-    assert "cluster_name" in created_secret["Spec"]["Labels"]
-    assert created_secret["Spec"]["Labels"]["cluster_name"] == fake_cluster.name
+    list_of_secrets = await async_docker_client.secrets.list()
+    assert len(list_of_secrets) == 1
+    secret = list_of_secrets[0]
+    assert created_secret.secret_id == secret["ID"]
+    inspected_secret = await async_docker_client.secrets.inspect(secret["ID"])
+
+    assert created_secret.secret_name == inspected_secret["Spec"]["Name"]
+    assert "cluster_id" in inspected_secret["Spec"]["Labels"]
+    assert inspected_secret["Spec"]["Labels"]["cluster_id"] == fake_cluster.id
+    assert "cluster_name" in inspected_secret["Spec"]["Labels"]
+    assert inspected_secret["Spec"]["Labels"]["cluster_name"] == fake_cluster.name
 
     # check update of secret
     fake_secret_file.write_text("some additional stuff in the file")
     assert fake_secret_file.stat().st_size != file_original_size
 
-    updated_secret_id = await create_or_update_secret(
-        async_docker_client, secret_name, fake_secret_file, fake_cluster
+    updated_secret: DockerSecret = await create_or_update_secret(
+        async_docker_client,
+        secret_name,
+        fake_secret_file,
+        fake_cluster,
+        worker_env,
+        scheduler_env,
     )
-    assert updated_secret_id != created_secret_id
+    assert updated_secret.secret_id != created_secret.secret_id
     secrets = await async_docker_client.secrets.list()
     assert len(secrets) == 1
     updated_secret = secrets[0]
@@ -225,8 +240,13 @@ async def test_create_or_update_docker_secrets(
 
     # create a second one
     secret_name2 = faker.pystr()
-    created_secret_id = await create_or_update_secret(
-        async_docker_client, secret_name2, fake_secret_file, fake_cluster
+    created_secret: DockerSecret = await create_or_update_secret(
+        async_docker_client,
+        secret_name2,
+        fake_secret_file,
+        fake_cluster,
+        worker_env,
+        scheduler_env,
     )
     secrets = await async_docker_client.secrets.list()
     assert len(secrets) == 2
