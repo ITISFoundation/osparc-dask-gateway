@@ -1,14 +1,27 @@
 import asyncio
+import json
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, AsyncGenerator, Dict, List, NamedTuple
 
 import aiodocker
-from aiodocker import Docker, docker
+from aiodocker import Docker
 from dask_gateway_server.backends.db_base import Cluster
 
 from .settings import AppSettings
+
+_SHARED_COMPUTATIONAL_FOLDER_IN_SIDECAR = "/home/scu/shared_computational_data"
+_DASK_KEY_CERT_PATH_IN_SIDECAR = Path("/home/scu/dask-credentials")
+
+
+class DockerSecret(NamedTuple):
+    secret_id: str
+    secret_name: str
+    file_name: Path
+    cluster: Cluster
+    worker_env: List[str]
+    scheduler_env: List[str]
 
 
 async def is_service_task_running(
@@ -51,21 +64,33 @@ def create_service_config(
     worker_env: Dict[str, Any],
     service_name: str,
     network_id: str,
-    scheduler_address: str,
+    secrets: List[DockerSecret],
 ) -> Dict[str, Any]:
     env = deepcopy(worker_env)
-    env.update(
-        {
-            "DASK_SCHEDULER_URL": scheduler_address,
-            "DASK_SCHEDULER_HOST": "",
-            # "DASK_NTHREADS": nthreads,
-            # "DASK_MEMORY_LIMIT": memory_limit,
-            # "DASK_WORKER_NAME": service_name,
-            "SIDECAR_COMP_SERVICES_SHARED_FOLDER": "/home/scu/computational_data",
-            "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": settings.COMPUTATIONAL_SIDECAR_VOLUME_NAME,
-            "LOG_LEVEL": settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
-        }
-    )
+    env.pop("PATH", None)
+    # create the secrets array containing the TLS cert/key pair
+    container_secrets = []
+    for s in secrets:
+        container_secrets.append(
+            {
+                "SecretName": s.secret_name,
+                "SecretID": s.secret_id,
+                "File": {
+                    "Name": f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.file_name.name}",
+                    "UID": "0",
+                    "GID": "0",
+                    "Mode": 0x777,
+                },
+            }
+        )
+        env.update(
+            {
+                k: f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.file_name.name}"
+                for k in s.worker_env
+            }
+        )
+
+    env.update({})
     mounts = [
         # docker socket needed to use the docker api
         {
@@ -74,17 +99,10 @@ def create_service_config(
             "Type": "bind",
             "ReadOnly": True,
         },
-        # the workder data is stored in a volume
-        {
-            "Source": settings.GATEWAY_VOLUME_NAME,
-            "Target": settings.GATEWAY_WORK_FOLDER,
-            "Type": "volume",
-            "ReadOnly": False,
-        },
         # the sidecar data data is stored in a volume
         {
             "Source": settings.COMPUTATIONAL_SIDECAR_VOLUME_NAME,
-            "Target": "/home/scu/computational_data",
+            "Target": _SHARED_COMPUTATIONAL_FOLDER_IN_SIDECAR,
             "Type": "volume",
             "ReadOnly": False,
         },
@@ -95,6 +113,8 @@ def create_service_config(
         "Image": settings.COMPUTATIONAL_SIDECAR_IMAGE,
         "Init": True,
         "Mounts": mounts,
+        "Secrets": container_secrets,
+        # "Command": ["ls", "-tlah", f"{_DASK_KEY_CERT_PATH_IN_SIDECAR}"],
     }
     return {
         "name": service_name,
@@ -107,12 +127,14 @@ def create_service_config(
     }
 
 
-SecretID = str
-
-
 async def create_or_update_secret(
-    docker_client: aiodocker.Docker, secret_name: str, file_path: Path, cluster: Cluster
-) -> SecretID:
+    docker_client: aiodocker.Docker,
+    secret_name: str,
+    file_path: Path,
+    cluster: Cluster,
+    worker_env: List[str],
+    scheduler_env: List[str],
+) -> DockerSecret:
     secrets = await docker_client.secrets.list(filters={"name": secret_name})
     if secrets:
         # we must first delete it as only labels may be updated
@@ -123,7 +145,14 @@ async def create_or_update_secret(
         data=file_path.read_text(),
         labels={"cluster_id": f"{cluster.id}", "cluster_name": f"{cluster.name}"},
     )
-    return secret["ID"]
+    return DockerSecret(
+        secret_id=secret["ID"],
+        secret_name=secret_name,
+        file_name=file_path,
+        cluster=cluster,
+        worker_env=worker_env,
+        scheduler_env=scheduler_env,
+    )
 
 
 async def delete_secrets(docker_client: aiodocker.Docker, cluster: Cluster):
@@ -131,3 +160,93 @@ async def delete_secrets(docker_client: aiodocker.Docker, cluster: Cluster):
         filters={"label": f"cluster_id={cluster.id}"}
     )
     await asyncio.gather(*[docker_client.secrets.delete(s["ID"]) for s in secrets])
+
+
+async def start_service(
+    docker_client: aiodocker.Docker,
+    settings: AppSettings,
+    logger: logging.Logger,
+    service_name: str,
+    base_env: Dict[str, str],
+    cluster_secrets: List[DockerSecret],
+    gateway_api_url: str,
+) -> AsyncGenerator[Dict[str, Any], None]:
+    service_parameters = {}
+    try:
+        assert settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL  # nosec
+        env = deepcopy(base_env)
+        env.update(
+            {
+                "DASK_GATEWAY_API_URL": gateway_api_url,
+                "SIDECAR_COMP_SERVICES_SHARED_FOLDER": _SHARED_COMPUTATIONAL_FOLDER_IN_SIDECAR,
+                "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": settings.COMPUTATIONAL_SIDECAR_VOLUME_NAME,
+                "LOG_LEVEL": settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
+            }
+        )
+        # find service parameters
+        network_id = await get_network_id(
+            docker_client, settings.GATEWAY_WORKERS_NETWORK, logger
+        )
+        service_parameters = create_service_config(
+            settings,
+            env,
+            service_name,
+            network_id,
+            cluster_secrets,
+        )
+
+        # start service
+        logger.info("Starting service %s", service_name)
+        logger.debug("Using parameters %s", json.dumps(service_parameters, indent=2))
+        service = await docker_client.services.create(**service_parameters)
+        logger.info("Service %s started: %s", service_name, f"{service=}")
+        yield {"service_id": service["ID"]}
+
+        # get the full info from docker
+        service = await docker_client.services.inspect(service["ID"])
+        logger.debug(
+            "Service %s inspection: %s",
+            service_name,
+            f"{json.dumps(service, indent=2)}",
+        )
+
+        # wait until the service is started
+        logger.info(
+            "---> Service started, waiting for service %s to run...",
+            service_name,
+        )
+        while not await is_service_task_running(
+            docker_client, service["Spec"]["Name"], logger
+        ):
+            yield {"service_id": service["ID"]}
+            await asyncio.sleep(1)
+
+        # we are done, the service is started
+        logger.info(
+            "---> Service %s is started, and has ID %s",
+            service["Spec"]["Name"],
+            service["ID"],
+        )
+        yield {"service_id": service["ID"]}
+
+    except (aiodocker.DockerContainerError, aiodocker.DockerError):
+        logger.exception(
+            "Unexpected Error while running container with parameters %s",
+            json.dumps(service_parameters, indent=2),
+        )
+        raise
+    except asyncio.CancelledError:
+        logger.warn("Service creation was cancelled")
+        raise
+
+
+async def stop_service(
+    docker_client: aiodocker.Docker, service_id: str, logger: logging.Logger
+) -> None:
+    logger.info("Stopping service %s", f"{service_id}")
+    try:
+        await docker_client.services.delete(service_id)
+        logger.info("service %s stopped", f"{service_id=}")
+
+    except aiodocker.DockerContainerError:
+        logger.exception("Error while stopping service with id %s", f"{service_id=}")
