@@ -2,7 +2,6 @@
 # pylint: disable=redefined-outer-name
 
 import asyncio
-import socket
 from typing import Any, Awaitable, Callable, Dict
 
 import pytest
@@ -12,8 +11,8 @@ from _pytest.monkeypatch import MonkeyPatch
 from aiodocker import Docker
 from dask_gateway import Gateway
 from faker import Faker
-from tenacity import retry
-from tenacity.stop import stop_after_attempt
+from tenacity._asyncio import AsyncRetrying
+from tenacity.stop import stop_after_delay
 from tenacity.wait import wait_fixed
 
 PASSWORD = "asdf"
@@ -23,6 +22,7 @@ TMP_FOLDER = "/tmp/gateway"
 @pytest.fixture
 def minimal_config(
     loop: asyncio.AbstractEventLoop,
+    docker_swarm,
     monkeypatch: MonkeyPatch,
     faker: Faker,
 ):
@@ -35,19 +35,52 @@ def minimal_config(
     )
 
 
-@retry(reraise=True, stop=stop_after_attempt(20), wait=wait_fixed(0.1))
-async def wait_for_n_services(n: int):
-    async with Docker() as docker_client:
-        assert len(await docker_client.services.list()) == n
+@pytest.fixture
+async def gateway_worker_network(
+    local_dask_gateway_server: DaskGatewayServer,
+    docker_network: Callable[[str], Awaitable[Dict[str, Any]]],
+) -> Dict[str, Any]:
+    network = await docker_network(
+        local_dask_gateway_server.server.backend.settings.GATEWAY_WORKERS_NETWORK
+    )
+    return network
 
 
-@retry(reraise=True, stop=stop_after_attempt(20), wait=wait_fixed(0.1))
-async def wait_for_n_containers(n: int):
-    async with Docker() as docker_client:
-        assert len(await docker_client.containers.list()) == n
+async def wait_for_n_services(docker_client: Docker, n: int):
+    list_services = []
+    async for attempt in AsyncRetrying(
+        reraise=True, stop=stop_after_delay(60), wait=wait_fixed(1)
+    ):
+        with attempt:
+            list_services = await docker_client.services.list()
+            print(f"--> waiting for services: currently {list_services=}")
+            assert len(list_services) == n
+            print(f"--> waiting for services: services are created.")
+    for service in list_services:
+        inspected_service = await docker_client.services.inspect(service["ID"])
+        service_tasks = await docker_client.tasks.list(
+            filters={"service": inspected_service["Spec"]["Name"]}
+        )
+        # we ensure the service remains stable for 5 seconds
+        _SECONDS_STABLE = 10
+        print(
+            f"--> checking {_SECONDS_STABLE} seconds for stability of service {inspected_service=}"
+        )
+        for n in range(_SECONDS_STABLE):
+            assert (
+                len(service_tasks) == 1
+            ), f"The service is not stable it shows {service_tasks}"
+            print(f"the service is stable after {n} seconds...")
+            await asyncio.sleep(1)
+        print(f"service stable!!")
 
 
-async def test_cluster_start_stop(minimal_config, gateway_client: Gateway):
+async def test_cluster_start_stop(
+    minimal_config,
+    gateway_worker_network,
+    gateway_client: Gateway,
+    async_docker_client: Docker,
+):
     # No currently running clusters
     clusters = await gateway_client.list_clusters()
     assert clusters == []
@@ -58,6 +91,12 @@ async def test_cluster_start_stop(minimal_config, gateway_client: Gateway):
         assert len(clusters)
         assert clusters[0].name == cluster.name
         print(f"found cluster: {clusters[0]=}")
+
+        # now we should have a dask_scheduler happily running in the host
+        list_services = await async_docker_client.services.list()
+        assert len(list_services) == 1
+        # there should be one service and a stable one
+        await wait_for_n_services(async_docker_client, 1)
 
         # Shutdown the cluster
         await cluster.shutdown()  # type: ignore
