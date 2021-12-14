@@ -1,8 +1,9 @@
 import asyncio
 import json
 import os
+from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Dict, List
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError, DockerError
@@ -12,13 +13,62 @@ from dask_gateway_server.backends.local import LocalBackend
 from dask_gateway_server.traitlets import Type
 
 from .settings import AppSettings
-from .utils import create_service_config, get_network_id, is_service_task_running
+from .utils import (
+    DockerSecret,
+    create_or_update_secret,
+    create_service_config,
+    delete_secrets,
+    get_network_id,
+    is_service_task_running,
+    start_service,
+    stop_service,
+)
 
 __all__ = ("OsparcClusterConfig", "OsparcBackend", "UnsafeOsparcBackend")
 
 
 class OsparcClusterConfig(ClusterConfig):
     """Dask cluster configuration options when running as osparc backend"""
+
+
+async def _create_docker_secrets_from_tls_certs(
+    docker_client: Docker, tls_cert_path: str, tls_key_path: str, cluster: Cluster
+) -> List[DockerSecret]:
+    return [
+        await create_or_update_secret(
+            docker_client,
+            f"{cluster.id}_{Path(tls_cert_path).name}",
+            Path(tls_cert_path),
+            cluster,
+            worker_env=[
+                "DASK_DISTRIBUTED__COMM__TLS__CA_FILE",
+                "DASK_DISTRIBUTED__COMM__TLS__WORKER__CERT",
+            ],
+            scheduler_env=[
+                "DASK_DISTRIBUTED__COMM__TLS__CA_FILE",
+                "DASK_DISTRIBUTED__COMM__TLS__SCHEDULER__CERT",
+            ],
+        ),
+        await create_or_update_secret(
+            docker_client,
+            f"{cluster.id}_{Path(tls_key_path).name}",
+            Path(tls_key_path),
+            cluster,
+            worker_env=[
+                "DASK_DISTRIBUTED__COMM__TLS__WORKER__KEY",
+            ],
+            scheduler_env=[
+                "DASK_DISTRIBUTED__COMM__TLS__SCHEDULER__KEY",
+            ],
+        ),
+    ]
+
+
+def _replace_netloc_in_url(original_url: str, settings: AppSettings) -> str:
+    splitted_url: SplitResult = urlsplit(original_url)
+    port = splitted_url.netloc.split(":")[1]
+    new_netloc = f"{settings.GATEWAY_SERVER_NAME}:{port}"
+    return urlunsplit(splitted_url._replace(netloc=new_netloc))
 
 
 class OsparcBackend(LocalBackend):
@@ -39,6 +89,7 @@ class OsparcBackend(LocalBackend):
 
     settings: AppSettings
     docker_client: Docker
+    cluster_secrets: List[DockerSecret] = []
 
     async def do_setup(self) -> None:
         await super().do_setup()
@@ -54,103 +105,68 @@ class OsparcBackend(LocalBackend):
         await self.docker_client.close()
 
     async def do_start_cluster(self, cluster) -> AsyncGenerator[Dict[str, Any], None]:
-        cluster_name = cluster.name
-        tls_cert_path, tls_key_path = self.get_tls_paths(cluster)
-        _TLS_CERT_SECRET_NAME = f"{cluster_name}-dask_tls_cert"
-        _TLS_KEY_SECRET_NAME = f"{cluster_name}-dask_tls_key"
-
+        last_result = None
         async for result in super().do_start_cluster(cluster):
+            last_result = result
             yield result
+        self.cluster_secrets.extend(
+            await _create_docker_secrets_from_tls_certs(
+                self.docker_client, *self.get_tls_paths(cluster), cluster
+            )
+        )
+        self.log.debug(
+            "created secrets for TLS certification: %s", f"{self.cluster_secrets=}"
+        )
+        assert last_result is not None  # nosec
+
+        # now we need a scheduler
+        gateway_api_url = _replace_netloc_in_url(self.api_url, self.settings)
+        async for dask_scheduler_start_result in start_service(
+            self.docker_client,
+            self.settings,
+            self.log,
+            f"cluster_{cluster.id}_scheduler",
+            {"DASK_START_AS_SCHEDULER": "1"},
+            self.cluster_secrets,
+            gateway_api_url,
+        ):
+            last_result.update(dask_scheduler_start_result)
+            yield last_result
+
+    async def do_stop_cluster(self, cluster):
+        dask_scheduler_service_id = cluster.state.get("service_id")
+        await stop_service(self.docker_client, dask_scheduler_service_id, self.log)
+        await delete_secrets(self.docker_client, cluster)
+        return await super().do_stop_cluster(cluster)
 
     async def do_start_worker(
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("received call to start worker as %s", f"{worker=}")
 
-        scheduler_url = urlsplit(worker.cluster.scheduler_address)
-        port = scheduler_url.netloc.split(":")[1]
-        netloc = f"{self.settings.GATEWAY_SERVER_NAME}:{port}"
-        scheduler_address = urlunsplit(scheduler_url._replace(netloc=netloc))
-
-        workdir = worker.cluster.state.get("workdir")
+        scheduler_url = _replace_netloc_in_url(
+            worker.cluster.scheduler_address, self.settings
+        )
+        gateway_api_url = _replace_netloc_in_url(self.api_url, self.settings)
 
         workdir = worker.cluster.state.get("workdir")
         self.log.debug("workdir set as %s", f"{workdir=}")
 
-        service_parameters = None
-        try:
-            # find service parameters
-            network_id = await get_network_id(
-                self.docker_client, self.settings.GATEWAY_WORKERS_NETWORK, self.log
-            )
-            service_name = worker.name
-            service_parameters = create_service_config(
-                self.settings,
-                self.get_worker_env(worker.cluster),
-                service_name,
-                network_id,
-                scheduler_address,
-            )
-
-            # start service
-            self.log.info("Starting service %s", service_name)
-            self.log.debug(
-                "Using parameters %s", json.dumps(service_parameters, indent=2)
-            )
-            service = await self.docker_client.services.create(**service_parameters)
-            self.log.info("Service %s started: %s", service_name, f"{service=}")
-            yield {"service_id": service["ID"]}
-
-            # get the full info from docker
-            service = await self.docker_client.services.inspect(service["ID"])
-            self.log.debug(
-                "Service %s inspection: %s",
-                service_name,
-                f"{json.dumps(service, indent=2)}",
-            )
-
-            # wait until the service is started
-            self.log.info(
-                "---> Service started, waiting for service %s to run...",
-                service_name,
-            )
-            while not await is_service_task_running(
-                self.docker_client, service["Spec"]["Name"], self.log
-            ):
-                yield {"service_id": service["ID"]}
-                await asyncio.sleep(1)
-
-            # we are done, the service is started
-            self.log.info(
-                "---> Service %s is started, and has ID %s",
-                worker.name,
-                service["ID"],
-            )
-            yield {"service_id": service["ID"]}
-
-        except (DockerContainerError, DockerError):
-            self.log.exception(
-                "Unexpected Error while running container with parameters %s",
-                json.dumps(service_parameters, indent=2),
-            )
-            raise
-        except asyncio.CancelledError:
-            self.log.warn("Service creation was cancelled")
-            raise
+        async for dask_sidecar_start_result in start_service(
+            self.docker_client,
+            self.settings,
+            self.log,
+            f"cluster_{worker.cluster.id}_sidecar_{worker.name}",
+            {"DASK_SCHEDULER_ADDRESS": "tls://dask-scheduler:8786"},
+            self.cluster_secrets,
+            gateway_api_url,
+        ):
+            yield dask_sidecar_start_result
 
     async def do_stop_worker(self, worker: Worker) -> None:
         self.log.debug("Calling to stop worker %s", f"{worker=}")
-        service_id = worker.state.get("service_id")
-        if service_id:
-            self.log.info("Stopping service %s", f"{service_id}")
-            try:
-                await self.docker_client.services.delete(service_id)
-                self.log.info("service %s stopped", f"{service_id=}")
-
-            except DockerContainerError:
-                self.log.exception(
-                    "Error while stopping service with id %s", f"{service_id=}"
-                )
+        if service_id := worker.state.get("service_id"):
+            await stop_service(self.docker_client, service_id, self.log)
         else:
             self.log.error(
                 "Worker %s does not have a service id! That is not expected!",
