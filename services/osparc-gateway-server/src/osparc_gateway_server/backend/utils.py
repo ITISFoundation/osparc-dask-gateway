@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from copy import deepcopy
 from pathlib import Path
@@ -123,3 +124,10 @@ async def create_or_update_secret(
         labels={"cluster_id": cluster.id, "cluster_name": cluster.name},
     )
     return secret["ID"]
+
+
+async def delete_secrets(docker_client: aiodocker.Docker, cluster: Cluster):
+    secrets = await docker_client.secrets.list(
+        filters={"label": f"cluster_id={cluster.id}"}
+    )
+    await asyncio.gather(*[docker_client.secrets.delete(s["ID"]) for s in secrets])

@@ -14,6 +14,7 @@ from osparc_gateway_server.backend.settings import AppSettings
 from osparc_gateway_server.backend.utils import (
     create_or_update_secret,
     create_service_config,
+    delete_secrets,
     get_network_id,
     is_service_task_running,
 )
@@ -223,3 +224,16 @@ async def test_create_or_update_docker_secrets(
     assert len(secrets) == 1
     updated_secret = secrets[0]
     assert updated_secret != created_secret
+
+    # create a second one
+    secret_name2 = faker.pystr()
+    created_secret_id = await create_or_update_secret(
+        async_docker_client, secret_name2, fake_secret_file, fake_cluster
+    )
+    secrets = await async_docker_client.secrets.list()
+    assert len(secrets) == 2
+
+    # test deletion
+    await delete_secrets(async_docker_client, fake_cluster)
+    secrets = await async_docker_client.secrets.list()
+    assert len(secrets) == 0
