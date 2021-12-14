@@ -121,7 +121,7 @@ async def create_or_update_secret(
     secret = await docker_client.secrets.create(
         name=secret_name,
         data=file_path.read_text(),
-        labels={"cluster_id": cluster.id, "cluster_name": cluster.name},
+        labels={"cluster_id": f"{cluster.id}", "cluster_name": f"{cluster.name}"},
     )
     return secret["ID"]
 
