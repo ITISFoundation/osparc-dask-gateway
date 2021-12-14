@@ -72,13 +72,8 @@ if stat $DOCKER_MOUNT >/dev/null 2>&1; then
     adduser "$SC_USER_NAME" "$GROUPNAME"
 fi
 
-echo "$INFO ensuring write rights on folders ..."
-mkdir --parents "${GATEWAY_WORK_FOLDER}"
-chown --recursive "$SC_USER_NAME":"$GROUPNAME" "${GATEWAY_WORK_FOLDER}"
-
 echo "$INFO Starting gateway ..."
 echo "  $SC_USER_NAME rights    : $(id "$SC_USER_NAME")"
 echo "  local dir : $(ls -al)"
-echo "  GATEWAY_WORK_FOLDER dir : $(ls -al "${GATEWAY_WORK_FOLDER}")"
 
 exec gosu "$SC_USER_NAME" "$@"

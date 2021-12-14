@@ -26,8 +26,6 @@ def minimal_config(
     monkeypatch: MonkeyPatch,
     faker: Faker,
 ):
-    monkeypatch.setenv("GATEWAY_VOLUME_NAME", faker.pystr())
-    monkeypatch.setenv("GATEWAY_WORK_FOLDER", "/tmp/pytest_work_folder")
     monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", faker.pystr())
     monkeypatch.setenv("GATEWAY_SERVER_NAME", get_this_computer_ip())
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_VOLUME_NAME", faker.pystr())
