@@ -2,14 +2,17 @@
 # pylint: disable=redefined-outer-name
 
 import asyncio
+from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict
 from unittest import mock
 
 import aiodocker
 import pytest
+from dask_gateway_server.backends.db_base import Cluster, JobStatus
 from faker import Faker
 from osparc_gateway_server.backend.settings import AppSettings
 from osparc_gateway_server.backend.utils import (
+    create_or_update_secret,
     create_service_config,
     get_network_id,
     is_service_task_running,
@@ -170,3 +173,53 @@ def test_create_service_parameters(minimal_config: None, faker: Faker):
             service_parameters["task_template"]["ContainerSpec"]["Env"][env_key]
             == env_value
         )
+
+
+@pytest.fixture
+def fake_secret_file(tmp_path) -> Path:
+    fake_secret_file = Path(tmp_path / "fake_file")
+    fake_secret_file.write_text("Hello I am a secret file")
+    assert fake_secret_file.exists()
+    return fake_secret_file
+
+
+@pytest.fixture
+async def fake_cluster(faker: Faker) -> Cluster:
+    return Cluster(id=faker.uuid4(), name=faker.name(), status=JobStatus.CREATED)
+
+
+async def test_create_or_update_docker_secrets(
+    docker_swarm,
+    async_docker_client: aiodocker.Docker,
+    fake_secret_file: Path,
+    fake_cluster: Cluster,
+    faker: Faker,
+):
+    file_original_size = fake_secret_file.stat().st_size
+    # check secret creation
+    secret_name = faker.pystr()
+    created_secret_id = await create_or_update_secret(
+        async_docker_client, secret_name, fake_secret_file, fake_cluster
+    )
+    secrets = await async_docker_client.secrets.list()
+    assert len(secrets) == 1
+    created_secret = secrets[0]
+    assert created_secret["ID"] == created_secret_id
+    assert created_secret["Spec"]["Name"] == secret_name
+    assert "cluster_id" in created_secret["Spec"]["Labels"]
+    assert created_secret["Spec"]["Labels"]["cluster_id"] == fake_cluster.id
+    assert "cluster_name" in created_secret["Spec"]["Labels"]
+    assert created_secret["Spec"]["Labels"]["cluster_name"] == fake_cluster.name
+
+    # check update of secret
+    fake_secret_file.write_text("some additional stuff in the file")
+    assert fake_secret_file.stat().st_size != file_original_size
+
+    updated_secret_id = await create_or_update_secret(
+        async_docker_client, secret_name, fake_secret_file, fake_cluster
+    )
+    assert updated_secret_id != created_secret_id
+    secrets = await async_docker_client.secrets.list()
+    assert len(secrets) == 1
+    updated_secret = secrets[0]
+    assert updated_secret != created_secret

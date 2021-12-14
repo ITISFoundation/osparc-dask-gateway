@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 import aiodocker
-from aiodocker import Docker
+from aiodocker import Docker, docker
+from dask_gateway_server.backends.db_base import Cluster
 
 from .settings import AppSettings
 
@@ -105,12 +106,20 @@ def create_service_config(
     }
 
 
+SecretID = str
+
+
 async def create_or_update_secret(
-    docker_client: aiodocker.Docker, secret_name: str, file_path: Path
-):
+    docker_client: aiodocker.Docker, secret_name: str, file_path: Path, cluster: Cluster
+) -> SecretID:
     secrets = await docker_client.secrets.list(filters={"name": secret_name})
-    if not secrets:
-        await docker_client.secrets.create(name=secret_name)
-    else:
+    if secrets:
+        # we must first delete it as only labels may be updated
         secret = secrets[0]
-        await docker_client.secrets.update(secret["ID"])
+        await docker_client.secrets.delete(secret["ID"])
+    secret = await docker_client.secrets.create(
+        name=secret_name,
+        data=file_path.read_text(),
+        labels={"cluster_id": cluster.id, "cluster_name": cluster.name},
+    )
+    return secret["ID"]
