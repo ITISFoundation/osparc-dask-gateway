@@ -88,9 +88,7 @@ async def _wait_for_service_to_be_ready(
                 filters={"service": service_name}
             )
             tasks_current_state = [t["Status"]["State"] for t in tasks_list]
-            print(
-                f"--> {service_name} current service task states are {tasks_current_state=}"
-            )
+            print(f"--> {service_name} service task states are {tasks_current_state=}")
             num_running = sum(current == "running" for current in tasks_current_state)
             assert num_running == 1
             print(f"--> {service_name} is running now")
