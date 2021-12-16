@@ -16,20 +16,3 @@ services:
         org.label-schema.build-date: "${BUILD_DATE}"
         org.label-schema.vcs-url: "${VCS_URL}"
         org.label-schema.vcs-ref: "${VCS_REF}"
-
-  volume-sync:
-    image: local/volume-sync:${BUILD_TARGET:?build_target_required}
-    build:
-      context: ../
-      dockerfile: services/volume-sync/Dockerfile
-      cache_from:
-        - local/volume-sync:${BUILD_TARGET:?build_target_required}
-        - ${DOCKER_REGISTRY:-itisfoundation}/volume-sync:master-github-latest
-        - ${DOCKER_REGISTRY:-itisfoundation}/volume-sync:staging-github-latest
-        - ${DOCKER_REGISTRY:-itisfoundation}/volume-sync:release-github-latest
-      target: production
-      labels:
-        org.label-schema.schema-version: "1.0"
-        org.label-schema.build-date: "${BUILD_DATE}"
-        org.label-schema.vcs-url: "${VCS_URL}"
-        org.label-schema.vcs-ref: "${VCS_REF}"
