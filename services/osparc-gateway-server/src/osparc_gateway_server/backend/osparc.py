@@ -8,7 +8,7 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError, DockerError
 from dask_gateway_server.backends.base import ClusterConfig
-from dask_gateway_server.backends.db_base import Cluster, Worker
+from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
 from dask_gateway_server.backends.local import LocalBackend
 from dask_gateway_server.traitlets import Type
 
@@ -16,9 +16,7 @@ from .settings import AppSettings
 from .utils import (
     DockerSecret,
     create_or_update_secret,
-    create_service_config,
     delete_secrets,
-    get_network_id,
     is_service_task_running,
     start_service,
     stop_service,
@@ -32,8 +30,9 @@ class OsparcClusterConfig(ClusterConfig):
 
 
 async def _create_docker_secrets_from_tls_certs(
-    docker_client: Docker, tls_cert_path: str, tls_key_path: str, cluster: Cluster
+    docker_client: Docker, backend: DBBackendBase, cluster: Cluster
 ) -> List[DockerSecret]:
+    tls_cert_path, tls_key_path = backend.get_tls_paths(cluster)
     return [
         await create_or_update_secret(
             docker_client,
@@ -69,6 +68,18 @@ def _replace_netloc_in_url(original_url: str, settings: AppSettings) -> str:
     port = splitted_url.netloc.split(":")[1]
     new_netloc = f"{settings.GATEWAY_SERVER_NAME}:{port}"
     return urlunsplit(splitted_url._replace(netloc=new_netloc))
+
+
+def _cluster_base_env(
+    backend: DBBackendBase, cluster: Cluster, settings: AppSettings
+) -> Dict[str, str]:
+    gateway_api_url = _replace_netloc_in_url(backend.api_url, settings)
+    return {
+        "DASK_GATEWAY_API_URL": gateway_api_url,
+        "DASK_GATEWAY_API_TOKEN": cluster.token,
+        "DASK_GATEWAY_CLUSTER_NAME": f"{cluster.name}",
+        "DASK_DISTRIBUTED__COMM__REQUIRE_ENCRYPTION": "True",
+    }
 
 
 class OsparcBackend(LocalBackend):
@@ -111,7 +122,7 @@ class OsparcBackend(LocalBackend):
             yield result
         self.cluster_secrets.extend(
             await _create_docker_secrets_from_tls_certs(
-                self.docker_client, *self.get_tls_paths(cluster), cluster
+                self.docker_client, self, cluster
             )
         )
         self.log.debug(
@@ -120,15 +131,17 @@ class OsparcBackend(LocalBackend):
         assert last_result is not None  # nosec
 
         # now we need a scheduler
-        gateway_api_url = _replace_netloc_in_url(self.api_url, self.settings)
+
+        base_env = _cluster_base_env(self, cluster, self.settings)
+        base_env.update({"DASK_START_AS_SCHEDULER": "1"})
         async for dask_scheduler_start_result in start_service(
             self.docker_client,
             self.settings,
             self.log,
             f"cluster_{cluster.id}_scheduler",
-            {"DASK_START_AS_SCHEDULER": "1"},
+            base_env,
             self.cluster_secrets,
-            gateway_api_url,
+            cmd=self.get_scheduler_command(cluster),
         ):
             last_result.update(dask_scheduler_start_result)
             yield last_result
@@ -144,22 +157,18 @@ class OsparcBackend(LocalBackend):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("received call to start worker as %s", f"{worker=}")
 
-        scheduler_url = _replace_netloc_in_url(
-            worker.cluster.scheduler_address, self.settings
-        )
-        gateway_api_url = _replace_netloc_in_url(self.api_url, self.settings)
-
         workdir = worker.cluster.state.get("workdir")
         self.log.debug("workdir set as %s", f"{workdir=}")
-
+        base_env = _cluster_base_env(self, worker.cluster, self.settings)
+        base_env.update({"DASK_SCHEDULER_ADDRESS": "tls://dask-scheduler:8786"})
         async for dask_sidecar_start_result in start_service(
             self.docker_client,
             self.settings,
             self.log,
             f"cluster_{worker.cluster.id}_sidecar_{worker.name}",
-            {"DASK_SCHEDULER_ADDRESS": "tls://dask-scheduler:8786"},
+            base_env,
             self.cluster_secrets,
-            gateway_api_url,
+            cmd=None,
         ):
             yield dask_sidecar_start_result
 

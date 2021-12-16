@@ -105,24 +105,11 @@ async def test_cluster_start_stop(
         assert clusters == []
 
 
-@pytest.fixture
-async def gateway_worker_network(
-    local_dask_gateway_server: DaskGatewayServer,
-    docker_network: Callable[[str], Awaitable[Dict[str, Any]]],
-) -> Dict[str, Any]:
-    network = await docker_network(
-        local_dask_gateway_server.server.backend.settings.GATEWAY_WORKERS_NETWORK
-    )
-    return network
-
-
-@pytest.mark.skip(reason="not ready yet")
 async def test_cluster_scale(
-    docker_swarm: None,
-    docker_network,
     minimal_config: None,
     gateway_client: Gateway,
     gateway_worker_network: Dict[str, Any],
+    async_docker_client: Docker,
 ):
 
     # No currently running clusters
@@ -139,10 +126,10 @@ async def test_cluster_scale(
         # Scale up, connect, and compute
         await cluster.scale(2)
 
-        # we should have 2 services
-        await asyncio.sleep(5)
+        await asyncio.sleep(120)
+
         # mocked_service_create_func.assert_called()
-        # await wait_for_n_services(2)
+        await wait_for_n_services(async_docker_client, 2)
 
         # and 2 corresponding containers
         # FIXME: we need a running container, waiting for PR2652
@@ -155,8 +142,10 @@ async def test_cluster_scale(
         # Scale down
         await cluster.scale(1)
 
+        await asyncio.sleep(10)
+
         # we should have 1 service
-        await wait_for_n_services(1)
+        await wait_for_n_services(async_docker_client, 1)
 
         # and 1 corresponding container
         # FIXME: we need a running container, waiting for PR2652
@@ -171,14 +160,16 @@ async def test_cluster_scale(
         await cluster.shutdown()  # type: ignore
 
         # we should have no service
-        await wait_for_n_services(0)
-
-        # and no corresponding container
-        await wait_for_n_containers(0)
+        await wait_for_n_services(async_docker_client, 0)
 
 
 @pytest.mark.skip("not ready")
-async def test_multiple_clusters(minimal_config, gateway_client: Gateway):
+async def test_multiple_clusters(
+    minimal_config,
+    gateway_client: Gateway,
+    gateway_worker_network: Dict[str, Any],
+    async_docker_client: Docker,
+):
     # No currently running clusters
     clusters = await gateway_client.list_clusters()
     assert clusters == []
@@ -196,11 +187,7 @@ async def test_multiple_clusters(minimal_config, gateway_client: Gateway):
             await cluster2.scale(2)
 
             # we should have 3 services
-            await wait_for_n_services(3)
-
-            # and 3 corresponding containers
-            # FIXME: we need a running container, waiting for PR2652
-            await wait_for_n_containers(3)
+            await wait_for_n_services(async_docker_client, 3)
 
             async with cluster1.get_client(set_as_default=False) as client:
                 res = await client.submit(lambda x: x + 1, 1)  # type: ignore
@@ -215,7 +202,4 @@ async def test_multiple_clusters(minimal_config, gateway_client: Gateway):
             await cluster2.shutdown()  # type: ignore
 
             # we should have no service
-            await wait_for_n_services(0)
-
-            # and no corresponding container
-            await wait_for_n_containers(0)
+            await wait_for_n_services(async_docker_client, 0)

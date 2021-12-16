@@ -3,7 +3,7 @@ import json
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, NamedTuple
+from typing import Any, AsyncGenerator, Dict, List, NamedTuple, Optional
 
 import aiodocker
 from aiodocker import Docker
@@ -65,6 +65,7 @@ def create_service_config(
     service_name: str,
     network_id: str,
     secrets: List[DockerSecret],
+    cmd: Optional[List[str]],
 ) -> Dict[str, Any]:
     env = deepcopy(worker_env)
     env.pop("PATH", None)
@@ -116,6 +117,8 @@ def create_service_config(
         "Secrets": container_secrets,
         # "Command": ["ls", "-tlah", f"{_DASK_KEY_CERT_PATH_IN_SIDECAR}"],
     }
+    if cmd:
+        container_config["Command"] = cmd
     return {
         "name": service_name,
         "task_template": {
@@ -169,7 +172,7 @@ async def start_service(
     service_name: str,
     base_env: Dict[str, str],
     cluster_secrets: List[DockerSecret],
-    gateway_api_url: str,
+    cmd: Optional[List[str]],
 ) -> AsyncGenerator[Dict[str, Any], None]:
     service_parameters = {}
     try:
@@ -177,7 +180,6 @@ async def start_service(
         env = deepcopy(base_env)
         env.update(
             {
-                "DASK_GATEWAY_API_URL": gateway_api_url,
                 "SIDECAR_COMP_SERVICES_SHARED_FOLDER": _SHARED_COMPUTATIONAL_FOLDER_IN_SIDECAR,
                 "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": settings.COMPUTATIONAL_SIDECAR_VOLUME_NAME,
                 "LOG_LEVEL": settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
@@ -188,11 +190,7 @@ async def start_service(
             docker_client, settings.GATEWAY_WORKERS_NETWORK, logger
         )
         service_parameters = create_service_config(
-            settings,
-            env,
-            service_name,
-            network_id,
-            cluster_secrets,
+            settings, env, service_name, network_id, cluster_secrets, cmd
         )
 
         # start service
