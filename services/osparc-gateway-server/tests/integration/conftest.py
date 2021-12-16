@@ -31,6 +31,7 @@ async def docker_network(
             config={"Name": name, "Driver": "overlay"}
         )
         assert network
+        print(f"--> created network {network=}")
         networks.append(network)
         return await network.show()
 
@@ -51,6 +52,7 @@ async def docker_network(
                 assert network_name not in list_of_network_names
             print(f"<-- network '{network_name}' deleted")
 
+    print(f"<-- removing all networks {networks=}")
     await asyncio.gather(*[_wait_for_network_deletion(network) for network in networks])
 
 
@@ -63,6 +65,7 @@ async def docker_volume(
     async def _volume_creator(name: str) -> Dict[str, Any]:
         volume = await async_docker_client.volumes.create(config={"Name": name})
         assert volume
+        print(f"--> created {volume=}")
         volumes.append(volume)
         return await volume.show()
 
