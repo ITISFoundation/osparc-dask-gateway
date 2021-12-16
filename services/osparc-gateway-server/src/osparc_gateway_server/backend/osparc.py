@@ -133,7 +133,13 @@ class OsparcBackend(LocalBackend):
         # now we need a scheduler
 
         base_env = _cluster_base_env(self, cluster, self.settings)
-        base_env.update({"DASK_START_AS_SCHEDULER": "1"})
+        self.get_scheduler_command(cluster)
+        base_env.update(
+            {
+                "DASK_START_AS_SCHEDULER": "1",
+                "DASK_SCHEDULER_OPTIONS": " ".join(self.get_scheduler_command(cluster)),
+            }
+        )
         async for dask_scheduler_start_result in start_service(
             self.docker_client,
             self.settings,
@@ -141,7 +147,7 @@ class OsparcBackend(LocalBackend):
             f"cluster_{cluster.id}_scheduler",
             base_env,
             self.cluster_secrets,
-            cmd=self.get_scheduler_command(cluster),
+            cmd=None,
         ):
             last_result.update(dask_scheduler_start_result)
             yield last_result
