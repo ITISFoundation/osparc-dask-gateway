@@ -1,12 +1,11 @@
 import asyncio
-import json
 import os
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Dict, List
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from aiodocker import Docker
-from aiodocker.exceptions import DockerContainerError, DockerError
+from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server.backends.base import ClusterConfig
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
 from dask_gateway_server.backends.local import LocalBackend
