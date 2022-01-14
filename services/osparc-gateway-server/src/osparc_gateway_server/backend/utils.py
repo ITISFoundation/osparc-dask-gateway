@@ -18,10 +18,7 @@ _DASK_KEY_CERT_PATH_IN_SIDECAR = Path("/home/scu/dask-credentials")
 class DockerSecret(NamedTuple):
     secret_id: str
     secret_name: str
-    file_name: Path
     cluster: Cluster
-    worker_env: List[str]
-    scheduler_env: List[str]
 
 
 async def is_service_task_running(
@@ -61,37 +58,36 @@ async def get_network_id(
 
 def create_service_config(
     settings: AppSettings,
-    worker_env: Dict[str, Any],
+    service_env: Dict[str, Any],
     service_name: str,
     network_id: str,
-    secrets: List[DockerSecret],
+    service_secrets: List[DockerSecret],
     cmd: Optional[List[str]],
 ) -> Dict[str, Any]:
-    env = deepcopy(worker_env)
+    env = deepcopy(service_env)
     env.pop("PATH", None)
     # create the secrets array containing the TLS cert/key pair
     container_secrets = []
-    for s in secrets:
+    for s in service_secrets:
         container_secrets.append(
             {
                 "SecretName": s.secret_name,
                 "SecretID": s.secret_id,
                 "File": {
-                    "Name": f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.file_name.name}",
+                    "Name": f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.secret_name}",
                     "UID": "0",
                     "GID": "0",
                     "Mode": 0x777,
                 },
             }
         )
-        env.update(
-            {
-                k: f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.file_name.name}"
-                for k in s.worker_env
-            }
-        )
-
-    env.update({})
+        env_updates = {}
+        for env_name, env_value in env.items():
+            if env_value == s.secret_name:
+                env_updates[
+                    env_name
+                ] = f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.secret_name}"
+        env.update(env_updates)
     mounts = [
         # docker socket needed to use the docker api
         {
@@ -133,11 +129,18 @@ def create_service_config(
 async def create_or_update_secret(
     docker_client: aiodocker.Docker,
     secret_name: str,
-    file_path: Path,
     cluster: Cluster,
-    worker_env: List[str],
-    scheduler_env: List[str],
+    file_path: Optional[Path] = None,
+    secret_data: Optional[str] = None,
 ) -> DockerSecret:
+    if file_path is None and secret_data is None:
+        raise ValueError(
+            f"Both {file_path=} and {secret_data=} are empty, that is not allowed"
+        )
+    data = secret_data
+    if not data and file_path:
+        data = file_path.read_text()
+
     secrets = await docker_client.secrets.list(filters={"name": secret_name})
     if secrets:
         # we must first delete it as only labels may be updated
@@ -145,16 +148,13 @@ async def create_or_update_secret(
         await docker_client.secrets.delete(secret["ID"])
     secret = await docker_client.secrets.create(
         name=secret_name,
-        data=file_path.read_text(),
+        data=data,
         labels={"cluster_id": f"{cluster.id}", "cluster_name": f"{cluster.name}"},
     )
     return DockerSecret(
         secret_id=secret["ID"],
         secret_name=secret_name,
-        file_name=file_path,
         cluster=cluster,
-        worker_env=worker_env,
-        scheduler_env=scheduler_env,
     )
 
 
@@ -192,7 +192,9 @@ async def start_service(
         service_parameters = create_service_config(
             settings, env, service_name, network_id, cluster_secrets, cmd
         )
+        import pdb
 
+        pdb.set_trace()
         # start service
         logger.info("Starting service %s", service_name)
         logger.debug("Using parameters %s", json.dumps(service_parameters, indent=2))

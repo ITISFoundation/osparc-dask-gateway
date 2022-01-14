@@ -1,15 +1,13 @@
 import asyncio
 import os
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Dict, List
+from typing import Any, AsyncGenerator, Callable, Dict, List, Union
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
-from dask_gateway_server.backends.base import ClusterConfig
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
-from dask_gateway_server.backends.local import LocalBackend
-from dask_gateway_server.traitlets import Type
+from traitlets import Unicode
 
 from .settings import AppSettings
 from .utils import (
@@ -21,11 +19,7 @@ from .utils import (
     stop_service,
 )
 
-__all__ = ("OsparcClusterConfig", "OsparcBackend", "UnsafeOsparcBackend")
-
-
-class OsparcClusterConfig(ClusterConfig):
-    """Dask cluster configuration options when running as osparc backend"""
+__all__ = ("OsparcBackend", "UnsafeOsparcBackend")
 
 
 async def _create_docker_secrets_from_tls_certs(
@@ -35,29 +29,15 @@ async def _create_docker_secrets_from_tls_certs(
     return [
         await create_or_update_secret(
             docker_client,
-            f"{cluster.id}_{Path(tls_cert_path).name}",
-            Path(tls_cert_path),
+            f"{tls_cert_path}",
             cluster,
-            worker_env=[
-                "DASK_DISTRIBUTED__COMM__TLS__CA_FILE",
-                "DASK_DISTRIBUTED__COMM__TLS__WORKER__CERT",
-            ],
-            scheduler_env=[
-                "DASK_DISTRIBUTED__COMM__TLS__CA_FILE",
-                "DASK_DISTRIBUTED__COMM__TLS__SCHEDULER__CERT",
-            ],
+            secret_data=cluster.tls_cert.decode(),
         ),
         await create_or_update_secret(
             docker_client,
-            f"{cluster.id}_{Path(tls_key_path).name}",
-            Path(tls_key_path),
+            f"{tls_key_path}",
             cluster,
-            worker_env=[
-                "DASK_DISTRIBUTED__COMM__TLS__WORKER__KEY",
-            ],
-            scheduler_env=[
-                "DASK_DISTRIBUTED__COMM__TLS__SCHEDULER__KEY",
-            ],
+            secret_data=cluster.tls_key.decode(),
         ),
     ]
 
@@ -81,18 +61,11 @@ def _cluster_base_env(
     }
 
 
-class OsparcBackend(LocalBackend):
+class OsparcBackend(DBBackendBase):
     """A cluster backend that launches osparc workers.
 
     Workers are spawned as services in a docker swarm
     """
-
-    cluster_config_class = Type(
-        "osparc_gateway_server.backend.osparc.OsparcClusterConfig",
-        klass="dask_gateway_server.backends.base.ClusterConfig",
-        help="The cluster config class to use",
-        config=True,
-    )
 
     default_host = "0.0.0.0"
     # worker_start_timeout = 120
@@ -100,6 +73,12 @@ class OsparcBackend(LocalBackend):
     settings: AppSettings
     docker_client: Docker
     cluster_secrets: List[DockerSecret] = []
+
+    clusters_directory = Unicode(
+        "/tmp/clusters_directory",
+        help="Path to use for keeping the clusters directories",
+        config=True,
+    )
 
     async def do_setup(self) -> None:
         await super().do_setup()
@@ -114,11 +93,9 @@ class OsparcBackend(LocalBackend):
         await super().do_cleanup()
         await self.docker_client.close()
 
-    async def do_start_cluster(self, cluster) -> AsyncGenerator[Dict[str, Any], None]:
-        last_result = None
-        async for result in super().do_start_cluster(cluster):
-            last_result = result
-            yield result
+    async def do_start_cluster(
+        self, cluster: Cluster
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         self.cluster_secrets.extend(
             await _create_docker_secrets_from_tls_certs(
                 self.docker_client, self, cluster
@@ -127,16 +104,14 @@ class OsparcBackend(LocalBackend):
         self.log.debug(
             "created secrets for TLS certification: %s", f"{self.cluster_secrets=}"
         )
-        assert last_result is not None  # nosec
 
         # now we need a scheduler
-
-        base_env = _cluster_base_env(self, cluster, self.settings)
-        self.get_scheduler_command(cluster)
-        base_env.update(
+        scheduler_env = self.get_scheduler_env(cluster)
+        scheduler_cmd = self.get_scheduler_command(cluster)
+        scheduler_env.update(
             {
                 "DASK_START_AS_SCHEDULER": "1",
-                "DASK_SCHEDULER_OPTIONS": " ".join(self.get_scheduler_command(cluster)),
+                "DASK_SCHEDULER_OPTIONS": " ".join(scheduler_cmd),
             }
         )
         async for dask_scheduler_start_result in start_service(
@@ -144,18 +119,25 @@ class OsparcBackend(LocalBackend):
             self.settings,
             self.log,
             f"cluster_{cluster.id}_scheduler",
-            base_env,
+            scheduler_env,
             self.cluster_secrets,
             cmd=None,
         ):
-            last_result.update(dask_scheduler_start_result)
-            yield last_result
+            yield dask_scheduler_start_result
 
-    async def do_stop_cluster(self, cluster):
+    async def do_stop_cluster(self, cluster: Cluster):
         dask_scheduler_service_id = cluster.state.get("service_id")
         await stop_service(self.docker_client, dask_scheduler_service_id, self.log)
         await delete_secrets(self.docker_client, cluster)
         return await super().do_stop_cluster(cluster)
+
+    async def do_check_clusters(self, clusters: List[Cluster]):
+        self.log.debug("--> checking clusters statuses: %s", f"{clusters=}")
+        ok = await asyncio.gather(
+            *[self._check_service_status(c) for c in clusters], return_exceptions=True
+        )
+        self.log.debug("<-- clusters status returned: %s", f"{ok=}")
+        return ok
 
     async def do_start_worker(
         self, worker: Worker
@@ -187,14 +169,16 @@ class OsparcBackend(LocalBackend):
                 f"{worker=}",
             )
 
-    async def _check_service_status(self, worker: Worker) -> bool:
-        self.log.debug("checking worker status: %s", f"{worker=}")
-        service_id = worker.state.get("service_id")
+    async def _check_service_status(
+        self, cluster_service: Union[Worker, Cluster]
+    ) -> bool:
+        self.log.debug("checking worker status: %s", f"{cluster_service=}")
+        service_id = cluster_service.state.get("service_id")
         if service_id:
-            self.log.debug("checking worker %s status", f"{service_id=}")
+            self.log.debug("checking service %s status", f"{service_id=}")
             try:
                 service = await self.docker_client.services.inspect(service_id)
-                self.log.debug("checking worker %s associated service", f"{service=}")
+                self.log.debug("checking service %s associated", f"{service=}")
                 if service:
                     service_name = service["Spec"]["Name"]
                     return await is_service_task_running(
@@ -206,7 +190,8 @@ class OsparcBackend(LocalBackend):
                     "Error while checking container with id %s", f"{service_id=}"
                 )
         self.log.error(
-            "Worker %s does not have a service id! That is not expected!", f"{worker=}"
+            "Worker %s does not have a service id! That is not expected!",
+            f"{cluster_service=}",
         )
         return False
 

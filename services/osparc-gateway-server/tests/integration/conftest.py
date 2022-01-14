@@ -1,6 +1,7 @@
 import asyncio
+import json
 from pathlib import Path
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Union
 
 import aiodocker
 import dask_gateway
@@ -11,10 +12,7 @@ from _dask_helpers import DaskGatewayServer
 from _pytest.tmpdir import tmp_path
 from dask_gateway_server.app import DaskGateway
 from faker import Faker
-from osparc_gateway_server.backend.osparc import (
-    OsparcClusterConfig,
-    UnsafeOsparcBackend,
-)
+from osparc_gateway_server.backend.osparc import OsparcBackend
 from tenacity._asyncio import AsyncRetrying
 from tenacity.stop import stop_after_delay
 from tenacity.wait import wait_fixed
@@ -95,21 +93,30 @@ def cluster_directory(tmp_path, faker: Faker) -> Path:
     return dir
 
 
+def _convert_to_dict(c: Union[traitlets.config.Config, Dict]) -> Dict[str, Any]:
+    converted_dict = {}
+    for x, y in c.items():
+        if isinstance(y, (dict, traitlets.config.Config)):
+            converted_dict[x] = _convert_to_dict(y)
+        else:
+            converted_dict[x] = f"{y}"
+    return converted_dict
+
+
 @pytest.fixture
 async def local_dask_gateway_server(
     minimal_config: None, gateway_password: str, cluster_directory: Path
 ) -> AsyncIterator[DaskGatewayServer]:
     """this code is more or less copy/pasted from dask-gateway repo"""
     c = traitlets.config.Config()
-    c.DaskGateway.backend_class = UnsafeOsparcBackend  # type: ignore
-    c.DaskGateway.Backend.cluster_config_class = OsparcClusterConfig  # type: ignore
+    c.DaskGateway.backend_class = OsparcBackend  # type: ignore
     c.DaskGateway.address = "127.0.0.1:0"  # type: ignore
     c.DaskGateway.log_level = "DEBUG"  # type: ignore
     c.Proxy.address = "127.0.0.1:0"  # type: ignore
     c.DaskGateway.authenticator_class = "dask_gateway_server.auth.SimpleAuthenticator"  # type: ignore
     c.SimpleAuthenticator.password = gateway_password  # type: ignore
     c.OsparcBackend.clusters_directory = f"{cluster_directory}"  # type: ignore
-    print(f"--> local dask gateway config: {c}")
+    print(f"--> local dask gateway config: {json.dumps(_convert_to_dict(c), indent=2)}")
     dask_gateway_server = DaskGateway(config=c)
     dask_gateway_server.initialize([])  # that is a shitty one!
     print("--> local dask gateway server initialized")
