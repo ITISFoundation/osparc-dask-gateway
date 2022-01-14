@@ -84,6 +84,7 @@ class OsparcBackend(DBBackendBase):
     async def do_start_cluster(
         self, cluster: Cluster
     ) -> AsyncGenerator[Dict[str, Any], None]:
+        self.log.debug(f"starting cluster {cluster=}")
         self.cluster_secrets.extend(
             await _create_docker_secrets_from_tls_certs(
                 self.docker_client, self, cluster
@@ -98,8 +99,12 @@ class OsparcBackend(DBBackendBase):
         scheduler_cmd = self.get_scheduler_command(cluster)
         scheduler_env.update(
             {
+                "DASK_GATEWAY_API_URL": _replace_netloc_in_url(
+                    self.api_url, self.settings
+                ),
                 "DASK_START_AS_SCHEDULER": "1",
-                "DASK_SCHEDULER_OPTIONS": " ".join(scheduler_cmd),
+                "DASK_SCHEDULER_COMMAND": " ".join(scheduler_cmd),
+                "DASK_SCHEDULER_PROTOCOL": "tls",
             }
         )
         async for dask_scheduler_start_result in start_service(
