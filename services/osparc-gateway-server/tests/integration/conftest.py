@@ -9,6 +9,7 @@ import pytest
 import traitlets
 import traitlets.config
 from _dask_helpers import DaskGatewayServer
+from _host_helpers import get_this_computer_ip
 from _pytest.tmpdir import tmp_path
 from dask_gateway_server.app import DaskGateway
 from faker import Faker
@@ -112,10 +113,11 @@ async def local_dask_gateway_server(
     c.DaskGateway.backend_class = OsparcBackend  # type: ignore
     c.DaskGateway.address = "127.0.0.1:0"  # type: ignore
     c.DaskGateway.log_level = "DEBUG"  # type: ignore
-    c.Proxy.address = "127.0.0.1:0"  # type: ignore
+    c.Proxy.address = f"{get_this_computer_ip()}:0"  # type: ignore
     c.DaskGateway.authenticator_class = "dask_gateway_server.auth.SimpleAuthenticator"  # type: ignore
     c.SimpleAuthenticator.password = gateway_password  # type: ignore
     c.OsparcBackend.clusters_directory = f"{cluster_directory}"  # type: ignore
+    # c.OsparcBackend.api_url = get_this_computer_ip()
     print(f"--> local dask gateway config: {json.dumps(_convert_to_dict(c), indent=2)}")
     dask_gateway_server = DaskGateway(config=c)
     dask_gateway_server.initialize([])  # that is a shitty one!

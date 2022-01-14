@@ -31,7 +31,7 @@ def minimal_config(
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_VOLUME_NAME", faker.pystr())
     monkeypatch.setenv(
         "COMPUTATIONAL_SIDECAR_IMAGE",
-        "itisfoundation/dask-sidecar:master-github-latest",
+        "local/dask-sidecar:production",
     )
 
 

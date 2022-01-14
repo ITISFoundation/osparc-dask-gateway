@@ -103,7 +103,7 @@ class OsparcBackend(DBBackendBase):
                     self.api_url, self.settings
                 ),
                 "DASK_START_AS_SCHEDULER": "1",
-                "DASK_SCHEDULER_COMMAND": " ".join(scheduler_cmd),
+                "DASK_SCHEDULER_COMMAND": "dask_scheduler --protocol tcp --port 0 --host 0.0.0.0 --preload dask_gateway.scheduler_preload",
                 "DASK_SCHEDULER_PROTOCOL": "tls",
             }
         )
