@@ -185,6 +185,7 @@ async def start_service(
                 "LOG_LEVEL": settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
             }
         )
+
         # find service parameters
         network_id = await get_network_id(
             docker_client, settings.GATEWAY_WORKERS_NETWORK, logger
@@ -192,9 +193,7 @@ async def start_service(
         service_parameters = create_service_config(
             settings, env, service_name, network_id, cluster_secrets, cmd
         )
-        import pdb
 
-        pdb.set_trace()
         # start service
         logger.info("Starting service %s", service_name)
         logger.debug("Using parameters %s", json.dumps(service_parameters, indent=2))
