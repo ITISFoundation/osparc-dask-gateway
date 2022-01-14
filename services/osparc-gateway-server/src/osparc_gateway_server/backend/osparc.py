@@ -49,18 +49,6 @@ def _replace_netloc_in_url(original_url: str, settings: AppSettings) -> str:
     return urlunsplit(splitted_url._replace(netloc=new_netloc))
 
 
-def _cluster_base_env(
-    backend: DBBackendBase, cluster: Cluster, settings: AppSettings
-) -> Dict[str, str]:
-    gateway_api_url = _replace_netloc_in_url(backend.api_url, settings)
-    return {
-        "DASK_GATEWAY_API_URL": gateway_api_url,
-        "DASK_GATEWAY_API_TOKEN": cluster.token,
-        "DASK_GATEWAY_CLUSTER_NAME": f"{cluster.name}",
-        "DASK_DISTRIBUTED__COMM__REQUIRE_ENCRYPTION": "True",
-    }
-
-
 class OsparcBackend(DBBackendBase):
     """A cluster backend that launches osparc workers.
 
@@ -129,7 +117,6 @@ class OsparcBackend(DBBackendBase):
         dask_scheduler_service_id = cluster.state.get("service_id")
         await stop_service(self.docker_client, dask_scheduler_service_id, self.log)
         await delete_secrets(self.docker_client, cluster)
-        return await super().do_stop_cluster(cluster)
 
     async def do_check_clusters(self, clusters: List[Cluster]):
         self.log.debug("--> checking clusters statuses: %s", f"{clusters=}")
@@ -144,16 +131,14 @@ class OsparcBackend(DBBackendBase):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("received call to start worker as %s", f"{worker=}")
 
-        workdir = worker.cluster.state.get("workdir")
-        self.log.debug("workdir set as %s", f"{workdir=}")
-        base_env = _cluster_base_env(self, worker.cluster, self.settings)
-        base_env.update({"DASK_SCHEDULER_ADDRESS": "tls://dask-scheduler:8786"})
+        worker_env = self.get_worker_env(worker.cluster)
+        worker_env.update({"DASK_SCHEDULER_ADDRESS": "tls://dask-scheduler:8786"})
         async for dask_sidecar_start_result in start_service(
             self.docker_client,
             self.settings,
             self.log,
             f"cluster_{worker.cluster.id}_sidecar_{worker.name}",
-            base_env,
+            worker_env,
             self.cluster_secrets,
             cmd=None,
         ):
