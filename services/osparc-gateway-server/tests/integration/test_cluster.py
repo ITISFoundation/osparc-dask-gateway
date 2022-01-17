@@ -7,6 +7,7 @@ from typing import Any, Awaitable, Callable, Dict, List
 import pytest
 from _dask_helpers import DaskGatewayServer
 from _host_helpers import get_this_computer_ip
+from _pytest.fixtures import FixtureRequest
 from _pytest.monkeypatch import MonkeyPatch
 from aiodocker import Docker
 from dask_gateway import Gateway
@@ -19,20 +20,26 @@ PASSWORD = "asdf"
 TMP_FOLDER = "/tmp/gateway"
 
 
-@pytest.fixture
+# TODO: add release-latest when possible
+@pytest.fixture(
+    params=[
+        "itisfoundation/dask-sidecar:master-github-latest",
+        "itisfoundation/dask-sidecar:staging-github-latest",
+    ]
+)
 def minimal_config(
     loop: asyncio.AbstractEventLoop,
     docker_swarm,
     monkeypatch: MonkeyPatch,
     faker: Faker,
+    request: FixtureRequest,
 ):
     monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", faker.pystr())
     monkeypatch.setenv("GATEWAY_SERVER_NAME", get_this_computer_ip())
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_VOLUME_NAME", faker.pystr())
-    # TODO: this should be parametrized to check all possible dask-sidecar images (master, staging, prod)
     monkeypatch.setenv(
         "COMPUTATIONAL_SIDECAR_IMAGE",
-        "itisfoundation/dask-sidecar:master-github-latest",
+        request.param,
     )
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_LOG_LEVEL", "DEBUG")
 
