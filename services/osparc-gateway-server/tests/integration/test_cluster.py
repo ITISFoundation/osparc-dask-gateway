@@ -70,7 +70,7 @@ async def assert_services_stability(docker_client: Docker, service_name: str):
             assert (
                 len(service_tasks) == 1
             ), f"The service is not stable it shows {service_tasks}"
-            print(f"the service is stable after {n} seconds...")
+            print(f"the service {service_name} is stable after {n} seconds...")
             await asyncio.sleep(1)
         print(f"service stable!!")
 
@@ -78,10 +78,13 @@ async def assert_services_stability(docker_client: Docker, service_name: str):
 
 
 async def _wait_for_cluster_services_and_secrets(
-    async_docker_client: Docker, num_services: int, num_secrets: int
+    async_docker_client: Docker,
+    num_services: int,
+    num_secrets: int,
+    timeout_s: int = 10,
 ) -> List[Dict[str, Any]]:
     async for attempt in AsyncRetrying(
-        reraise=True, wait=wait_fixed(1), stop=stop_after_delay(10)
+        reraise=True, wait=wait_fixed(1), stop=stop_after_delay(timeout_s)
     ):
         with attempt:
             list_services = await async_docker_client.services.list()
@@ -175,52 +178,66 @@ async def test_cluster_scale(
     # No currently running clusters
     clusters = await gateway_client.list_clusters()
     assert clusters == []
-    # create one cluster
+
+    # create a cluster
     async with gateway_client.new_cluster() as cluster:
 
         # Cluster is now present in list
         clusters = await gateway_client.list_clusters()
         assert len(clusters)
         assert clusters[0].name == cluster.name
+        import pdb
 
-        # Scale up, connect, and compute
-        await cluster.scale(2)
-
-        await asyncio.sleep(120)
-
-        # mocked_service_create_func.assert_called()
-        await assert_services_stability(async_docker_client, 2)
-
-        # and 2 corresponding containers
-        # FIXME: we need a running container, waiting for PR2652
-        # await wait_for_n_containers(2)
-
+        pdb.set_trace()
+        # let's get some workers
+        _NUM_WORKERS = 5
+        await cluster.scale(_NUM_WORKERS)
+        # wait for them to be up
+        list_services = await _wait_for_cluster_services_and_secrets(
+            async_docker_client,
+            num_services=1 + _NUM_WORKERS,
+            num_secrets=2,
+            timeout_s=60,
+        )
+        # let's check everything is stable
+        await asyncio.gather(
+            *[
+                assert_services_stability(async_docker_client, s["Spec"]["Name"])
+                for s in list_services
+            ]
+        )
+        # compute some stuff
         async with cluster.get_client(set_as_default=False) as client:
             res = await client.submit(lambda x: x + 1, 1)  # type: ignore
             assert res == 2
 
+        import pdb
+
+        pdb.set_trace()
         # Scale down
         await cluster.scale(1)
-
-        await asyncio.sleep(10)
-
-        # we should have 1 service
-        await assert_services_stability(async_docker_client, 1)
-
-        # and 1 corresponding container
-        # FIXME: we need a running container, waiting for PR2652
-        # await wait_for_n_containers(1)
+        # wait for the scaling to happen
+        list_services = await _wait_for_cluster_services_and_secrets(
+            async_docker_client, num_services=1 + 1, num_secrets=2, timeout_s=60
+        )
+        # let's check everything is stable
+        await asyncio.gather(
+            *[
+                assert_services_stability(async_docker_client, s["Spec"]["Name"])
+                for s in list_services
+            ]
+        )
 
         # Can still compute
         async with cluster.get_client(set_as_default=False) as client:
             res = await client.submit(lambda x: x + 1, 1)  # type: ignore
             assert res == 2
 
-        # Shutdown the cluster
-        await cluster.shutdown()  # type: ignore
-
-        # we should have no service
-        await assert_services_stability(async_docker_client, 0)
+    # Shutdown the cluster
+    # wait for the scaling to happen
+    list_services = await _wait_for_cluster_services_and_secrets(
+        async_docker_client, num_services=0, num_secrets=0, timeout_s=60
+    )
 
 
 @pytest.mark.skip("not ready")
