@@ -54,7 +54,22 @@ async def assert_services_stability(docker_client: Docker, service_name: str):
         len(list_services) == 1
     ), f"{service_name} is missing from the expected services in {list_services}"
     _SECONDS_STABLE = 10
-    print(f"--> {service_name} is up, now checking it is stable {_SECONDS_STABLE}s")
+    print(f"--> {service_name} is up, now checking if it is running...")
+    async for attempt in AsyncRetrying(
+        reraise=True, wait=wait_fixed(1), stop=stop_after_delay(60)
+    ):
+        with attempt:
+            tasks_list = await docker_client.tasks.list(
+                filters={"service": service_name}
+            )
+            tasks_current_state = [t["Status"]["State"] for t in tasks_list]
+            print(f"--> {service_name} service task states are {tasks_current_state=}")
+            num_running = sum(current == "running" for current in tasks_current_state)
+            assert num_running == 1
+            print(f"--> {service_name} is running now")
+    print(
+        f"--> {service_name} is running, now checking if it is stable during {_SECONDS_STABLE}s..."
+    )
 
     async def _check_stability(service: Dict[str, Any]):
         inspected_service = await docker_client.services.inspect(service["ID"])
@@ -186,9 +201,7 @@ async def test_cluster_scale(
         clusters = await gateway_client.list_clusters()
         assert len(clusters)
         assert clusters[0].name == cluster.name
-        import pdb
 
-        pdb.set_trace()
         # let's get some workers
         _NUM_WORKERS = 5
         await cluster.scale(_NUM_WORKERS)
@@ -211,9 +224,6 @@ async def test_cluster_scale(
             res = await client.submit(lambda x: x + 1, 1)  # type: ignore
             assert res == 2
 
-        import pdb
-
-        pdb.set_trace()
         # Scale down
         await cluster.scale(1)
         # wait for the scaling to happen
