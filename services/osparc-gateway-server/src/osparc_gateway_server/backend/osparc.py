@@ -146,7 +146,7 @@ class OsparcBackend(DBBackendBase):
             self.log,
             f"cluster_{worker.cluster.id}_sidecar_{worker.name}",
             worker_env,
-            self.cluster_secrets,
+            [c for c in self.cluster_secrets if c.cluster.name == worker.cluster.name],
             cmd=None,
             labels={"cluster_id": f"{worker.cluster.id}", "worker_id": f"{worker.id}"},
         ):
