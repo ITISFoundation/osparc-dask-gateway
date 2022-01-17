@@ -96,6 +96,8 @@ async def _wait_for_cluster_services_and_secrets(
             )
             assert len(list_secrets) == num_secrets
             return list_services
+    # needed for pylint
+    raise AssertionError("Invalid call to _wait_for_cluster_services_and_secrets")
 
 
 async def test_cluster_start_stop(
