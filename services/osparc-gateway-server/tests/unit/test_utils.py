@@ -158,6 +158,7 @@ def test_create_service_parameters(minimal_config: None, faker: Faker):
     network_id = faker.uuid4()
     secrets = []
     cmd = faker.pystr()
+    fake_labels = {"some_fake_lable": faker.pystr()}
     service_parameters = create_service_config(
         settings=settings,
         service_env=worker_env,
@@ -165,6 +166,7 @@ def test_create_service_parameters(minimal_config: None, faker: Faker):
         network_id=network_id,
         service_secrets=secrets,
         cmd=cmd,
+        labels=fake_labels,
     )
     assert service_parameters
     assert service_parameters["name"] == service_name
@@ -176,6 +178,7 @@ def test_create_service_parameters(minimal_config: None, faker: Faker):
             == env_value
         )
     assert service_parameters["task_template"]["ContainerSpec"]["Command"] == cmd
+    assert service_parameters["labels"] == fake_labels
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict
+from typing import Any, Awaitable, Callable, Dict, List
 
 import pytest
 from _dask_helpers import DaskGatewayServer
@@ -29,6 +29,7 @@ def minimal_config(
     monkeypatch.setenv("GATEWAY_WORKERS_NETWORK", faker.pystr())
     monkeypatch.setenv("GATEWAY_SERVER_NAME", get_this_computer_ip())
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_VOLUME_NAME", faker.pystr())
+    # TODO: this should be parametrized to check all possible dask-sidecar images (master, staging, prod)
     monkeypatch.setenv(
         "COMPUTATIONAL_SIDECAR_IMAGE",
         "itisfoundation/dask-sidecar:master-github-latest",
@@ -47,33 +48,54 @@ async def gateway_worker_network(
     return network
 
 
-async def wait_for_n_services(docker_client: Docker, n: int):
-    list_services = []
-    async for attempt in AsyncRetrying(
-        reraise=True, stop=stop_after_delay(60), wait=wait_fixed(1)
-    ):
-        with attempt:
-            list_services = await docker_client.services.list()
-            print(f"--> waiting for services: currently {list_services=}")
-            assert len(list_services) == n
-            print(f"--> waiting for services: services are created.")
-    for service in list_services:
+async def assert_services_stability(docker_client: Docker, service_name: str):
+    list_services = await docker_client.services.list(filters={"name": service_name})
+    assert (
+        len(list_services) == 1
+    ), f"{service_name} is missing from the expected services in {list_services}"
+    _SECONDS_STABLE = 10
+    print(f"--> {service_name} is up, now checking it is stable {_SECONDS_STABLE}s")
+
+    async def _check_stability(service: Dict[str, Any]):
         inspected_service = await docker_client.services.inspect(service["ID"])
-        service_tasks = await docker_client.tasks.list(
-            filters={"service": inspected_service["Spec"]["Name"]}
-        )
-        # we ensure the service remains stable for 5 seconds
-        _SECONDS_STABLE = 10
+        # we ensure the service remains stable for _SECONDS_STABLE seconds (e.g. only one task runs)
+
         print(
-            f"--> checking {_SECONDS_STABLE} seconds for stability of service {inspected_service=}"
+            f"--> checking {_SECONDS_STABLE} seconds for stability of service {inspected_service['Spec']['Name']=}"
         )
         for n in range(_SECONDS_STABLE):
+            service_tasks = await docker_client.tasks.list(
+                filters={"service": inspected_service["Spec"]["Name"]}
+            )
             assert (
                 len(service_tasks) == 1
             ), f"The service is not stable it shows {service_tasks}"
             print(f"the service is stable after {n} seconds...")
             await asyncio.sleep(1)
         print(f"service stable!!")
+
+    await asyncio.gather(*[_check_stability(s) for s in list_services])
+
+
+async def _wait_for_cluster_services_and_secrets(
+    async_docker_client: Docker, num_services: int, num_secrets: int
+) -> List[Dict[str, Any]]:
+    async for attempt in AsyncRetrying(
+        reraise=True, wait=wait_fixed(1), stop=stop_after_delay(10)
+    ):
+        with attempt:
+            list_services = await async_docker_client.services.list()
+            print(
+                f"--> list of services after {attempt.retry_state.attempt_number}s: {list_services=}, expected {num_services=}"
+            )
+            assert len(list_services) == num_services
+            # as the secrets
+            list_secrets = await async_docker_client.secrets.list()
+            print(
+                f"--> list of secrets after {attempt.retry_state.attempt_number}s: {list_secrets=}, expected {num_secrets}"
+            )
+            assert len(list_secrets) == num_secrets
+            return list_services
 
 
 async def test_cluster_start_stop(
@@ -82,39 +104,63 @@ async def test_cluster_start_stop(
     gateway_client: Gateway,
     async_docker_client: Docker,
 ):
+    """Each cluster is made of 1 scheduler + X number of sidecars (with 0<=X<infinite)"""
     # No currently running clusters
     clusters = await gateway_client.list_clusters()
     assert clusters == []
 
     # create one cluster
-    async with gateway_client.new_cluster() as cluster:
+    async with gateway_client.new_cluster() as cluster1:
         clusters = await gateway_client.list_clusters()
         assert len(clusters) == 1
+        assert clusters[0].name == cluster1.name
         print(f"found cluster: {clusters[0]=}")
-
+        list_services = await _wait_for_cluster_services_and_secrets(
+            async_docker_client, num_services=1, num_secrets=2
+        )
         # now we should have a dask_scheduler happily running in the host
-        list_services = await async_docker_client.services.list()
         assert len(list_services) == 1
+        assert list_services[0]["Spec"]["Name"] == "cluster_1_scheduler"
+        assert list_services[0]["Spec"]["Labels"] == {"cluster_id": "1"}
         # there should be one service and a stable one
-        await wait_for_n_services(async_docker_client, 1)
+        await assert_services_stability(async_docker_client, "cluster_1_scheduler")
 
         # let's create a second cluster
         async with gateway_client.new_cluster() as cluster2:
             clusters = await gateway_client.list_clusters()
+            # now we should have 2 clusters (e.g. 2 dask-schedulers)
             assert len(clusters) == 2
-            # now we should have a dask_scheduler happily running in the host
-            list_services = await async_docker_client.services.list()
-            assert len(list_services) == 2
-            # there should be one service and a stable one
-            await wait_for_n_services(async_docker_client, 2)
-        # the second cluster is now closed
-        list_services = await async_docker_client.services.list()
-        assert len(list_services) == 1
-        # there should be one service and a stable one
-        await wait_for_n_services(async_docker_client, 1)
+            assert clusters[1].name == cluster2.name
+            list_services = await _wait_for_cluster_services_and_secrets(
+                async_docker_client, num_services=2, num_secrets=4
+            )
 
+            # this list is not ordered
+            assert len(list_services) == 2
+            for s in list_services:
+                assert list_services[1]["Spec"]["Name"] in [
+                    "cluster_1_scheduler",
+                    "cluster_2_scheduler",
+                ]
+                assert list_services[1]["Spec"]["Labels"] in [
+                    {"cluster_id": "1"},
+                    {"cluster_id": "2"},
+                ]
+            # the new scheduler should be as stable as a rock!
+            await assert_services_stability(async_docker_client, "cluster_2_scheduler")
+        # the second cluster is now closed
+        list_services = await _wait_for_cluster_services_and_secrets(
+            async_docker_client, num_services=1, num_secrets=2
+        )
+        assert list_services[0]["Spec"]["Name"] == "cluster_1_scheduler"
+        assert list_services[0]["Spec"]["Labels"] == {"cluster_id": "1"}
+    # now both clusters are gone
     clusters = await gateway_client.list_clusters()
-    assert clusters == []
+    assert not clusters
+    # check the services are all gone
+    await _wait_for_cluster_services_and_secrets(
+        async_docker_client, num_services=0, num_secrets=0
+    )
 
 
 async def test_cluster_scale(
@@ -141,7 +187,7 @@ async def test_cluster_scale(
         await asyncio.sleep(120)
 
         # mocked_service_create_func.assert_called()
-        await wait_for_n_services(async_docker_client, 2)
+        await assert_services_stability(async_docker_client, 2)
 
         # and 2 corresponding containers
         # FIXME: we need a running container, waiting for PR2652
@@ -157,7 +203,7 @@ async def test_cluster_scale(
         await asyncio.sleep(10)
 
         # we should have 1 service
-        await wait_for_n_services(async_docker_client, 1)
+        await assert_services_stability(async_docker_client, 1)
 
         # and 1 corresponding container
         # FIXME: we need a running container, waiting for PR2652
@@ -172,7 +218,7 @@ async def test_cluster_scale(
         await cluster.shutdown()  # type: ignore
 
         # we should have no service
-        await wait_for_n_services(async_docker_client, 0)
+        await assert_services_stability(async_docker_client, 0)
 
 
 @pytest.mark.skip("not ready")
@@ -199,7 +245,7 @@ async def test_multiple_clusters(
             await cluster2.scale(2)
 
             # we should have 3 services
-            await wait_for_n_services(async_docker_client, 3)
+            await assert_services_stability(async_docker_client, 3)
 
             async with cluster1.get_client(set_as_default=False) as client:
                 res = await client.submit(lambda x: x + 1, 1)  # type: ignore
@@ -214,4 +260,4 @@ async def test_multiple_clusters(
             await cluster2.shutdown()  # type: ignore
 
             # we should have no service
-            await wait_for_n_services(async_docker_client, 0)
+            await assert_services_stability(async_docker_client, 0)

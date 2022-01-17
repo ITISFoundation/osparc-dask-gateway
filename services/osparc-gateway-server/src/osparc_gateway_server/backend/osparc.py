@@ -116,6 +116,7 @@ class OsparcBackend(DBBackendBase):
             scheduler_env,
             [c for c in self.cluster_secrets if c.cluster.name == cluster.name],
             cmd=scheduler_cmd,
+            labels={"cluster_id": f"{cluster.id}"},
         ):
             yield dask_scheduler_start_result
 
@@ -147,6 +148,7 @@ class OsparcBackend(DBBackendBase):
             worker_env,
             self.cluster_secrets,
             cmd=None,
+            labels={"cluster_id": f"{worker.cluster.id}", "worker_id": f"{worker.id}"},
         ):
             yield dask_sidecar_start_result
 

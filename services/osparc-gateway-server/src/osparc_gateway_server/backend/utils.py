@@ -64,6 +64,7 @@ def create_service_config(
     network_id: str,
     service_secrets: List[DockerSecret],
     cmd: Optional[List[str]],
+    labels: Dict[str, str],
 ) -> Dict[str, Any]:
     env = deepcopy(service_env)
     env.pop("PATH", None)
@@ -118,6 +119,7 @@ def create_service_config(
         container_config["Command"] = cmd
     return {
         "name": service_name,
+        "labels": labels,
         "task_template": {
             "ContainerSpec": container_config,
             "RestartPolicy": {"Condition": "on-failure"},
@@ -143,21 +145,21 @@ async def create_or_update_secret(
     if not data and file_path:
         data = file_path.read_text()
 
-    secrets = await docker_client.secrets.list(
-        filters={"name": f"{target_file_name}_{cluster.name}"}
-    )
+    docker_secret_name = f"{target_file_name}_{cluster.id}"
+
+    secrets = await docker_client.secrets.list(filters={"name": docker_secret_name})
     if secrets:
         # we must first delete it as only labels may be updated
         secret = secrets[0]
         await docker_client.secrets.delete(secret["ID"])
     secret = await docker_client.secrets.create(
-        name=f"{target_file_name}_{cluster.name}",
+        name=docker_secret_name,
         data=data,
         labels={"cluster_id": f"{cluster.id}", "cluster_name": f"{cluster.name}"},
     )
     return DockerSecret(
         secret_id=secret["ID"],
-        secret_name=f"{target_file_name}_{cluster.name}",
+        secret_name=docker_secret_name,
         secret_file_name=target_file_name,
         cluster=cluster,
     )
@@ -178,6 +180,7 @@ async def start_service(
     base_env: Dict[str, str],
     cluster_secrets: List[DockerSecret],
     cmd: Optional[List[str]],
+    labels: Dict[str, str],
 ) -> AsyncGenerator[Dict[str, Any], None]:
     service_parameters = {}
     try:
@@ -196,7 +199,7 @@ async def start_service(
             docker_client, settings.GATEWAY_WORKERS_NETWORK, logger
         )
         service_parameters = create_service_config(
-            settings, env, service_name, network_id, cluster_secrets, cmd
+            settings, env, service_name, network_id, cluster_secrets, cmd, labels=labels
         )
 
         # start service
