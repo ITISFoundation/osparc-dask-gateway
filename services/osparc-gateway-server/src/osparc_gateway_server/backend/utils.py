@@ -130,6 +130,7 @@ async def create_or_update_secret(
     docker_client: aiodocker.Docker,
     secret_name: str,
     cluster: Cluster,
+    *,
     file_path: Optional[Path] = None,
     secret_data: Optional[str] = None,
 ) -> DockerSecret:

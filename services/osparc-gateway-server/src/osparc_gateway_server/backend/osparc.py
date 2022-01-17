@@ -1,6 +1,5 @@
 import asyncio
-import os
-from typing import Any, AsyncGenerator, Callable, Dict, List, Union
+from typing import Any, AsyncGenerator, Dict, List, Union
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from aiodocker import Docker
@@ -17,8 +16,6 @@ from .utils import (
     start_service,
     stop_service,
 )
-
-__all__ = ("OsparcBackend", "UnsafeOsparcBackend")
 
 
 async def _create_docker_secrets_from_tls_certs(
@@ -196,23 +193,3 @@ class OsparcBackend(DBBackendBase):
         )
         self.log.debug("<-- worker status returned: %s", f"{ok=}")
         return ok
-
-
-class UnsafeOsparcBackend(OsparcBackend):  # pylint: disable=too-many-ancestors
-    """A version of OsparcBackend that doesn't set permissions.
-
-    This provides no user separations - clusters run with the
-    same level of permission as the gateway, which is fine,
-    everyone is a scu
-    """
-
-    def make_preexec_fn(self, cluster: Cluster) -> Callable[[], None]:
-        workdir = cluster.state["workdir"]
-
-        def preexec() -> None:  # pragma: nocover
-            os.chdir(workdir)
-
-        return preexec
-
-    def set_file_permissions(self, paths: List[str], username: str) -> None:
-        pass

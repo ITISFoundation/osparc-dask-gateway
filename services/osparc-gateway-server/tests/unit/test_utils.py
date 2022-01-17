@@ -160,10 +160,10 @@ def test_create_service_parameters(minimal_config: None, faker: Faker):
     cmd = faker.pystr()
     service_parameters = create_service_config(
         settings=settings,
-        worker_env=worker_env,
+        service_env=worker_env,
         service_name=service_name,
         network_id=network_id,
-        secrets=secrets,
+        service_secrets=secrets,
         cmd=cmd,
     )
     assert service_parameters
@@ -206,10 +206,8 @@ async def test_create_or_update_docker_secrets(
     created_secret: DockerSecret = await create_or_update_secret(
         async_docker_client,
         secret_name,
-        fake_secret_file,
         fake_cluster,
-        worker_env,
-        scheduler_env,
+        file_path=fake_secret_file,
     )
     list_of_secrets = await async_docker_client.secrets.list()
     assert len(list_of_secrets) == 1
@@ -230,10 +228,8 @@ async def test_create_or_update_docker_secrets(
     updated_secret: DockerSecret = await create_or_update_secret(
         async_docker_client,
         secret_name,
-        fake_secret_file,
         fake_cluster,
-        worker_env,
-        scheduler_env,
+        file_path=fake_secret_file,
     )
     assert updated_secret.secret_id != created_secret.secret_id
     secrets = await async_docker_client.secrets.list()
@@ -246,10 +242,8 @@ async def test_create_or_update_docker_secrets(
     created_secret: DockerSecret = await create_or_update_secret(
         async_docker_client,
         secret_name2,
-        fake_secret_file,
         fake_cluster,
-        worker_env,
-        scheduler_env,
+        file_path=fake_secret_file,
     )
     secrets = await async_docker_client.secrets.list()
     assert len(secrets) == 2
