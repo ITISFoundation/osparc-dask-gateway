@@ -139,7 +139,7 @@ class OsparcBackend(DBBackendBase):
         self.log.debug("received call to start worker as %s", f"{worker=}")
 
         worker_env = self.get_worker_env(worker.cluster)
-        worker_env.update({"DASK_SCHEDULER_ADDRESS": "tls://dask-scheduler:8786"})
+        worker_env.update({"DASK_SCHEDULER_URL": "tls://dask-scheduler:8786"})
         async for dask_sidecar_start_result in start_service(
             self.docker_client,
             self.settings,
