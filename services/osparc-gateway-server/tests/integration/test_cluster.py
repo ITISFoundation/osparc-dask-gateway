@@ -100,7 +100,7 @@ async def _wait_for_cluster_services_and_secrets(
     raise AssertionError("Invalid call to _wait_for_cluster_services_and_secrets")
 
 
-async def test_cluster_start_stop(
+async def test_clusters_start_stop(
     minimal_config,
     gateway_worker_network,
     gateway_client: Gateway,
