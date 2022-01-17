@@ -89,8 +89,7 @@ async def test_cluster_start_stop(
     # create one cluster
     async with gateway_client.new_cluster() as cluster:
         clusters = await gateway_client.list_clusters()
-        assert len(clusters)
-        assert clusters[0].name == cluster.name
+        assert len(clusters) == 1
         print(f"found cluster: {clusters[0]=}")
 
         # now we should have a dask_scheduler happily running in the host
@@ -99,11 +98,18 @@ async def test_cluster_start_stop(
         # there should be one service and a stable one
         await wait_for_n_services(async_docker_client, 1)
 
-        # Shutdown the cluster
-        await cluster.shutdown()  # type: ignore
+        # let's create a second cluster
+        async with gateway_client.new_cluster() as cluster2:
+            clusters = await gateway_client.list_clusters()
+            assert len(clusters) == 2
+            # now we should have a dask_scheduler happily running in the host
+            list_services = await async_docker_client.services.list()
+            assert len(list_services) == 2
+            # there should be one service and a stable one
+            await wait_for_n_services(async_docker_client, 2)
 
-        clusters = await gateway_client.list_clusters()
-        assert clusters == []
+    clusters = await gateway_client.list_clusters()
+    assert clusters == []
 
 
 async def test_cluster_scale(
