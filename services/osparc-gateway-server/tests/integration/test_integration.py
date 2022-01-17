@@ -33,6 +33,7 @@ def minimal_config(
         "COMPUTATIONAL_SIDECAR_IMAGE",
         "local/dask-sidecar:production",
     )
+    monkeypatch.setenv("COMPUTATIONAL_SIDECAR_LOG_LEVEL", "DEBUG")
 
 
 @pytest.fixture
