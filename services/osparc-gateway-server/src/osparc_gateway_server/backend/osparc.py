@@ -1,4 +1,5 @@
 import asyncio
+from multiprocessing.sharedctypes import Value
 from typing import Any, AsyncGenerator, Dict, List, Union
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
@@ -98,6 +99,11 @@ class OsparcBackend(DBBackendBase):
             scheduler_cmd[dashboard_address_arg_index + 1] = "0.0.0.0:8787"
         except ValueError:
             scheduler_cmd.extend(["--dashboard-address", "0.0.0.0:8787"])
+        try:
+            scheduler_port_arg_index = scheduler_cmd.index("--port")
+            scheduler_cmd[scheduler_port_arg_index + 1] = "8786"
+        except ValueError:
+            scheduler_cmd.extend(["--port", "8786"])
         self.log.debug("created scheduler command: %s", f"{scheduler_cmd=}")
         # NOTE: the hostname of the gateway API must be modified so that the scheduler can
         # send heartbeats to the gateway
@@ -137,9 +143,14 @@ class OsparcBackend(DBBackendBase):
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("received call to start worker as %s", f"{worker=}")
-
+        dask_scheduler_service_id = worker.cluster.state.get("service_id")
+        dask_scheduler = await self.docker_client.services.inspect(
+            dask_scheduler_service_id
+        )
+        self.log.debug("associated scheduler is %s", f"{dask_scheduler=}")
+        dask_scheduler_name = dask_scheduler["Spec"]["Name"]
         worker_env = self.get_worker_env(worker.cluster)
-        worker_env.update({"DASK_SCHEDULER_URL": "tls://dask-scheduler:8786"})
+        worker_env.update({"DASK_SCHEDULER_URL": f"tls://{dask_scheduler_name}:8786"})
         async for dask_sidecar_start_result in start_service(
             self.docker_client,
             self.settings,
