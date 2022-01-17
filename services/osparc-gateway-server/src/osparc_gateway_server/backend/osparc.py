@@ -151,6 +151,20 @@ class OsparcBackend(DBBackendBase):
         dask_scheduler_name = dask_scheduler["Spec"]["Name"]
         worker_env = self.get_worker_env(worker.cluster)
         worker_env.update({"DASK_SCHEDULER_URL": f"tls://{dask_scheduler_name}:8786"})
+        self.log.error(
+            "worker command: %s", self.get_worker_command(worker.cluster, worker.name)
+        )
+        # NOTE: the hostname of the gateway API must be modified so that the worker can
+        # send heartbeats to the gateway
+        # also the name must be set so that the scheduler knows which worker to wait for
+        worker_env.update(
+            {
+                "DASK_GATEWAY_API_URL": _replace_netloc_in_url(
+                    self.api_url, self.settings
+                ),
+                "DASK_WORKER_NAME": worker.name,
+            }
+        )
         async for dask_sidecar_start_result in start_service(
             self.docker_client,
             self.settings,
