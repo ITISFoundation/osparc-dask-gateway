@@ -188,7 +188,7 @@ def fake_secret_file(tmp_path) -> Path:
 
 @pytest.fixture
 async def fake_cluster(faker: Faker) -> Cluster:
-    return Cluster(id=faker.uuid4(), name=faker.name(), status=JobStatus.CREATED)
+    return Cluster(id=faker.uuid4(), name=faker.pystr(), status=JobStatus.CREATED)
 
 
 async def test_create_or_update_docker_secrets(
