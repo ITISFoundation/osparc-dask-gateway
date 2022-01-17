@@ -1,6 +1,5 @@
 import asyncio
 import os
-from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Dict, List, Union
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
@@ -97,14 +96,19 @@ class OsparcBackend(DBBackendBase):
         # now we need a scheduler
         scheduler_env = self.get_scheduler_env(cluster)
         scheduler_cmd = self.get_scheduler_command(cluster)
+        try:
+            dashboard_address_arg_index = scheduler_cmd.index("--dashboard-address")
+            scheduler_cmd[dashboard_address_arg_index + 1] = "0.0.0.0:8787"
+        except ValueError:
+            scheduler_cmd.extend(["--dashboard-address", "0.0.0.0:8787"])
+        self.log.debug("created scheduler command: %s", f"{scheduler_cmd=}")
+        # NOTE: the hostname of the gateway API must be modified so that the scheduler can
+        # send heartbeats to the gateway
         scheduler_env.update(
             {
                 "DASK_GATEWAY_API_URL": _replace_netloc_in_url(
                     self.api_url, self.settings
                 ),
-                "DASK_START_AS_SCHEDULER": "1",
-                "DASK_SCHEDULER_COMMAND": "dask_scheduler --protocol tcp --port 0 --host 0.0.0.0 --preload dask_gateway.scheduler_preload",
-                "DASK_SCHEDULER_PROTOCOL": "tls",
             }
         )
         async for dask_scheduler_start_result in start_service(
@@ -114,7 +118,7 @@ class OsparcBackend(DBBackendBase):
             f"cluster_{cluster.id}_scheduler",
             scheduler_env,
             self.cluster_secrets,
-            cmd=None,
+            cmd=scheduler_cmd,
         ):
             yield dask_scheduler_start_result
 
