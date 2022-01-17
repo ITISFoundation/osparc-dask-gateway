@@ -107,6 +107,11 @@ async def test_cluster_start_stop(
             assert len(list_services) == 2
             # there should be one service and a stable one
             await wait_for_n_services(async_docker_client, 2)
+        # the second cluster is now closed
+        list_services = await async_docker_client.services.list()
+        assert len(list_services) == 1
+        # there should be one service and a stable one
+        await wait_for_n_services(async_docker_client, 1)
 
     clusters = await gateway_client.list_clusters()
     assert clusters == []

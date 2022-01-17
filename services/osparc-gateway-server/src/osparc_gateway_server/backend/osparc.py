@@ -18,7 +18,7 @@ from .utils import (
 )
 
 
-async def _create_docker_secrets_from_tls_certs(
+async def _create_docker_secrets_from_tls_certs_for_cluster(
     docker_client: Docker, backend: DBBackendBase, cluster: Cluster
 ) -> List[DockerSecret]:
     tls_cert_path, tls_key_path = backend.get_tls_paths(cluster)
@@ -82,7 +82,7 @@ class OsparcBackend(DBBackendBase):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug(f"starting cluster {cluster=}")
         self.cluster_secrets.extend(
-            await _create_docker_secrets_from_tls_certs(
+            await _create_docker_secrets_from_tls_certs_for_cluster(
                 self.docker_client, self, cluster
             )
         )
@@ -114,7 +114,7 @@ class OsparcBackend(DBBackendBase):
             self.log,
             f"cluster_{cluster.id}_scheduler",
             scheduler_env,
-            self.cluster_secrets,
+            [c for c in self.cluster_secrets if c.cluster.name == cluster.name],
             cmd=scheduler_cmd,
         ):
             yield dask_scheduler_start_result

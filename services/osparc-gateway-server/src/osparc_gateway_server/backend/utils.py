@@ -18,6 +18,7 @@ _DASK_KEY_CERT_PATH_IN_SIDECAR = Path("/home/scu/dask-credentials")
 class DockerSecret(NamedTuple):
     secret_id: str
     secret_name: str
+    secret_file_name: str
     cluster: Cluster
 
 
@@ -74,7 +75,7 @@ def create_service_config(
                 "SecretName": s.secret_name,
                 "SecretID": s.secret_id,
                 "File": {
-                    "Name": f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.secret_name}",
+                    "Name": f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.secret_file_name}",
                     "UID": "0",
                     "GID": "0",
                     "Mode": 0x777,
@@ -83,10 +84,10 @@ def create_service_config(
         )
         env_updates = {}
         for env_name, env_value in env.items():
-            if env_value == s.secret_name:
+            if env_value == s.secret_file_name:
                 env_updates[
                     env_name
-                ] = f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.secret_name}"
+                ] = f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.secret_file_name}"
         env.update(env_updates)
     mounts = [
         # docker socket needed to use the docker api
@@ -128,7 +129,7 @@ def create_service_config(
 
 async def create_or_update_secret(
     docker_client: aiodocker.Docker,
-    secret_name: str,
+    target_file_name: str,
     cluster: Cluster,
     *,
     file_path: Optional[Path] = None,
@@ -142,19 +143,22 @@ async def create_or_update_secret(
     if not data and file_path:
         data = file_path.read_text()
 
-    secrets = await docker_client.secrets.list(filters={"name": secret_name})
+    secrets = await docker_client.secrets.list(
+        filters={"name": f"{target_file_name}_{cluster.name}"}
+    )
     if secrets:
         # we must first delete it as only labels may be updated
         secret = secrets[0]
         await docker_client.secrets.delete(secret["ID"])
     secret = await docker_client.secrets.create(
-        name=secret_name,
+        name=f"{target_file_name}_{cluster.name}",
         data=data,
         labels={"cluster_id": f"{cluster.id}", "cluster_name": f"{cluster.name}"},
     )
     return DockerSecret(
         secret_id=secret["ID"],
-        secret_name=secret_name,
+        secret_name=f"{target_file_name}_{cluster.name}",
+        secret_file_name=target_file_name,
         cluster=cluster,
     )
 
