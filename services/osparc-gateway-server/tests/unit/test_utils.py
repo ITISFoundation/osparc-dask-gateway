@@ -238,6 +238,10 @@ async def test_create_or_update_docker_secrets(
     fake_cluster: Cluster,
     faker: Faker,
 ):
+    list_of_secrets = await async_docker_client.secrets.list(
+        filters={"label": f"cluster_id={fake_cluster.id}"}
+    )
+    assert len(list_of_secrets) == 0
     file_original_size = fake_secret_file.stat().st_size
     # check secret creation
     secret_target_file_name = faker.file_path()
@@ -247,7 +251,9 @@ async def test_create_or_update_docker_secrets(
         fake_cluster,
         file_path=fake_secret_file,
     )
-    list_of_secrets = await async_docker_client.secrets.list()
+    list_of_secrets = await async_docker_client.secrets.list(
+        filters={"label": f"cluster_id={fake_cluster.id}"}
+    )
     assert len(list_of_secrets) == 1
     secret = list_of_secrets[0]
     assert created_secret.secret_id == secret["ID"]
@@ -270,7 +276,9 @@ async def test_create_or_update_docker_secrets(
         file_path=fake_secret_file,
     )
     assert updated_secret.secret_id != created_secret.secret_id
-    secrets = await async_docker_client.secrets.list()
+    secrets = await async_docker_client.secrets.list(
+        filters={"label": f"cluster_id={fake_cluster.id}"}
+    )
     assert len(secrets) == 1
     updated_secret = secrets[0]
     assert updated_secret != created_secret
@@ -283,10 +291,14 @@ async def test_create_or_update_docker_secrets(
         fake_cluster,
         secret_data=faker.text(),
     )
-    secrets = await async_docker_client.secrets.list()
+    secrets = await async_docker_client.secrets.list(
+        filters={"label": f"cluster_id={fake_cluster.id}"}
+    )
     assert len(secrets) == 2
 
     # test deletion
     await delete_secrets(async_docker_client, fake_cluster)
-    secrets = await async_docker_client.secrets.list()
+    secrets = await async_docker_client.secrets.list(
+        filters={"label": f"cluster_id={fake_cluster.id}"}
+    )
     assert len(secrets) == 0
