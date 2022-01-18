@@ -10,49 +10,11 @@ import traitlets
 import traitlets.config
 from _dask_helpers import DaskGatewayServer
 from _host_helpers import get_this_computer_ip
-from _pytest.tmpdir import tmp_path
 from dask_gateway_server.app import DaskGateway
 from faker import Faker
 from osparc_gateway_server.backend.osparc import OsparcBackend
 from tenacity._asyncio import AsyncRetrying
-from tenacity.stop import stop_after_delay
 from tenacity.wait import wait_fixed
-
-
-@pytest.fixture
-async def docker_network(
-    async_docker_client: aiodocker.Docker,
-) -> AsyncIterator[Callable[[str], Awaitable[Dict[str, Any]]]]:
-    networks = []
-
-    async def _network_creator(name: str) -> Dict[str, Any]:
-        network = await async_docker_client.networks.create(
-            config={"Name": name, "Driver": "overlay"}
-        )
-        assert network
-        print(f"--> created network {network=}")
-        networks.append(network)
-        return await network.show()
-
-    yield _network_creator
-
-    # wait until all networks are really gone
-    async def _wait_for_network_deletion(network: aiodocker.docker.DockerNetwork):
-        network_name = (await network.show())["Name"]
-        await network.delete()
-        async for attempt in AsyncRetrying(
-            reraise=True, wait=wait_fixed(1), stop=stop_after_delay(60)
-        ):
-            with attempt:
-                print(f"<-- waiting for network '{network_name}' deletion...")
-                list_of_network_names = [
-                    n["Name"] for n in await async_docker_client.networks.list()
-                ]
-                assert network_name not in list_of_network_names
-            print(f"<-- network '{network_name}' deleted")
-
-    print(f"<-- removing all networks {networks=}")
-    await asyncio.gather(*[_wait_for_network_deletion(network) for network in networks])
 
 
 @pytest.fixture
