@@ -47,10 +47,12 @@ def minimal_config(
 @pytest.fixture
 async def gateway_worker_network(
     local_dask_gateway_server: DaskGatewayServer,
-    docker_network: Callable[[str], Awaitable[Dict[str, Any]]],
+    docker_network: Callable[..., Awaitable[Dict[str, Any]]],
 ) -> Dict[str, Any]:
     network = await docker_network(
-        local_dask_gateway_server.server.backend.settings.GATEWAY_WORKERS_NETWORK
+        **{
+            "Name": local_dask_gateway_server.server.backend.settings.GATEWAY_WORKERS_NETWORK
+        }
     )
     return network
 
