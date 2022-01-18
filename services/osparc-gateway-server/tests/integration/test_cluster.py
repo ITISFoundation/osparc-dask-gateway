@@ -39,7 +39,7 @@ def minimal_config(
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_VOLUME_NAME", faker.pystr())
     monkeypatch.setenv(
         "COMPUTATIONAL_SIDECAR_IMAGE",
-        request.param,
+        request.param,  # type: ignore
     )
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_LOG_LEVEL", "DEBUG")
 
