@@ -61,16 +61,19 @@ class OsparcBackend(DBBackendBase):
         # now we need a scheduler
         scheduler_env = self.get_scheduler_env(cluster)
         scheduler_cmd = self.get_scheduler_command(cluster)
+        scheduler_service_name = f"cluster_{cluster.id}_scheduler"
         try:
             # NOTE: the healthcheck of itisfoundation/dask-sidecar expects the dashboard to be on port 8787
             dashboard_address_arg_index = scheduler_cmd.index("--dashboard-address")
-            scheduler_cmd[dashboard_address_arg_index + 1] = "0.0.0.0:8787"
+            scheduler_cmd[dashboard_address_arg_index + 1] = ":8787"
         except ValueError:
-            scheduler_cmd.extend(["--dashboard-address", "0.0.0.0:8787"])
+            scheduler_cmd.extend(["--dashboard-address", ":8787"])
         try:
             # NOTE: the workers expect to connect with the scheduler on predefined port
             scheduler_port_arg_index = scheduler_cmd.index("--port")
             scheduler_cmd[scheduler_port_arg_index + 1] = f"{_SCHEDULER_PORT}"
+            scheduler_host_arg_index = scheduler_cmd.index("--host")
+            scheduler_cmd[scheduler_host_arg_index + 1] = scheduler_service_name
         except ValueError:
             scheduler_cmd.extend(["--port", f"{_SCHEDULER_PORT}"])
         self.log.debug("created scheduler command: %s", f"{scheduler_cmd=}")
@@ -79,9 +82,11 @@ class OsparcBackend(DBBackendBase):
             self.docker_client,
             self.settings,
             self.log,
-            f"cluster_{cluster.id}_scheduler",
-            scheduler_env,
-            [c for c in self.cluster_secrets if c.cluster.name == cluster.name],
+            service_name=scheduler_service_name,
+            base_env=scheduler_env,
+            cluster_secrets=[
+                c for c in self.cluster_secrets if c.cluster.name == cluster.name
+            ],
             cmd=scheduler_cmd,
             labels={"cluster_id": f"{cluster.id}"},
             gateway_api_url=self.api_url,
@@ -120,7 +125,7 @@ class OsparcBackend(DBBackendBase):
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
         worker_env.update(
             {
-                "DASK_SCHEDULER_URL": f"tls://{dask_scheduler_name}:{_SCHEDULER_PORT}",
+                "DASK_SCHEDULER_URL": f"tls://dask-gateway_{dask_scheduler_name}:{_SCHEDULER_PORT}",
                 "DASK_WORKER_NAME": worker.name,
             }
         )
