@@ -4,5 +4,3 @@ services:
     ports:
       - "8000:8000"
       - "3100:3000" # ptvsd port
-    environment:
-      - COMPUTATIONAL_SIDECAR_LOG_LEVEL=DEBUG
