@@ -1,5 +1,3 @@
---requirement ./_dask-distributed.txt
-
 aiodocker
 bokeh
 dask-gateway
