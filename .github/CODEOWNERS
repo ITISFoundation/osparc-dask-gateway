@@ -11,5 +11,4 @@ Makefile                                  @mguidon, @sanderegg
 /ci/                                      @sanderegg
 /requirements/                            @mguidon, @sanderegg
 /services/gateway/                        @mguidon, @sanderegg
-/services/catalog/volume-sync/            @mguidon
 requirements/*                            @mguidon, @sanderegg

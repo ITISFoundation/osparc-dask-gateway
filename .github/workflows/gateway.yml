@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        python: [3.7]
+        python: [3.9]
         os: [ubuntu-20.04]
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -74,7 +74,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        python: [3.7]
+        python: [3.9]
         os: [ubuntu-20.04]
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -115,7 +115,7 @@ jobs:
     needs: [unit-test, integration-test]
     strategy:
       matrix:
-        python: [3.7]
+        python: [3.9]
         os: [ubuntu-20.04]
         docker_buildx: [v0.7.0]
       fail-fast: false
@@ -148,7 +148,7 @@ jobs:
           registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: build and deploy image for multi-arch
+      - name: build and deploy image for linux/amd64,linux/arm/v7,linux/arm64
         if: github.event_name == 'push'
         env:
           DOCKER_TARGET_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64
@@ -156,7 +156,7 @@ jobs:
         run: |
           make build push=1 && \
           make info-images
-      - name: build image for multi-arch
+      - name: build image for linux/amd64,linux/arm/v7,linux/arm64
         if: github.event_name == 'pull_request'
         env:
           DOCKER_TARGET_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64

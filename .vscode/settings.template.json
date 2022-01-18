@@ -29,22 +29,8 @@
     "--max-line-length 140"
   ],
   "python.analysis.extraPaths": [
-    "./packages/models-library/src",
-    "./packages/postgres-database/src",
-    "./packages/postgres-database/tests",
-    "./packages/pytest-simcore/src",
-    "./packages/service-integration/src",
-    "./packages/service-library/src",
-    "./packages/simcore-sdk/src",
-    "./services/api-server/src",
-    "./services/api-server/tests/unit",
-    "./services/catalog/src",
-    "./services/director-v2/src",
-    "./services/director/src",
-    "./services/storage/src",
-    "./services/web/server/src",
-    "./services/web/server/tests/unit/with_dbs",
-    "./services/web/server/tests/unit/with_dbs/slow"
+    "./services/osparc-gateway-setver/src",
+    "./services/osparc-gateway-setver/tests"
   ],
   "python.linting.pylintEnabled": true,
   "python.linting.enabled": true,

@@ -18,6 +18,7 @@ pytest-xdist
 pytest-icdiff
 
 # fixtures
+dask-gateway
 docker
 tenacity
 Faker

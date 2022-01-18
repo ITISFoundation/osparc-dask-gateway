@@ -1,8 +1,7 @@
---requirement ./_dask-distributed.txt
+--constraint ./constraints.txt
 
 aiodocker
 bokeh
-dask-gateway
 dask-gateway-server
 pydantic[email,dotenv]
 sqlalchemy # required by dask-gateway-server

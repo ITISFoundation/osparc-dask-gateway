@@ -1,10 +1,9 @@
 # syntax=docker/dockerfile:1
-ARG PYTHON_VERSION="3.7.12"
-FROM --platform=${TARGETPLATFORM} python:${PYTHON_VERSION}-buster as base
+ARG PYTHON_VERSION="3.9.9"
+FROM python:${PYTHON_VERSION}-slim-buster as base
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
-RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM" > /log \
-  && stat -c "%a %n" /var/cache/apt/ && stat -c "%a %n" /var/lib/apt/
+RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM"
 
 
 
@@ -89,7 +88,6 @@ WORKDIR /build
 COPY --chown=scu:scu services/osparc-gateway-server/requirements/_base.txt .
 
 # install base 3rd party dependencies (NOTE: this speeds up devel mode)
-ENV MAKEFLAGS="-j 12"
 RUN --mount=type=cache,mode=0777,target=/root/.cache/pip \
   pip install \
   -r _base.txt
