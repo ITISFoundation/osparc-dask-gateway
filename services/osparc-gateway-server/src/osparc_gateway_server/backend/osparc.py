@@ -4,7 +4,6 @@ from typing import Any, AsyncGenerator, Dict, List, Union
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
-from traitlets.traitlets import Unicode
 
 from .settings import AppSettings
 from .utils import (
@@ -29,12 +28,6 @@ class OsparcBackend(DBBackendBase):
     settings: AppSettings
     docker_client: Docker
     cluster_secrets: List[DockerSecret] = []
-
-    clusters_directory = Unicode(
-        "/tmp/clusters_directory",
-        help="Path to use for keeping the clusters directories",
-        config=True,
-    )
 
     async def do_setup(self) -> None:
         await super().do_setup()
