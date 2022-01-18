@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, AsyncGenerator, Dict, List, Union
+from typing import Any, AsyncGenerator, Dict, Final, List, Union
 
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
@@ -14,6 +14,8 @@ from .utils import (
     start_service,
     stop_service,
 )
+
+_SCHEDULER_PORT: Final[int] = 8786
 
 
 class OsparcBackend(DBBackendBase):
@@ -59,15 +61,17 @@ class OsparcBackend(DBBackendBase):
         scheduler_env = self.get_scheduler_env(cluster)
         scheduler_cmd = self.get_scheduler_command(cluster)
         try:
+            # NOTE: the healthcheck of itisfoundation/dask-sidecar expects the dashboard to be on port 8787
             dashboard_address_arg_index = scheduler_cmd.index("--dashboard-address")
             scheduler_cmd[dashboard_address_arg_index + 1] = "0.0.0.0:8787"
         except ValueError:
             scheduler_cmd.extend(["--dashboard-address", "0.0.0.0:8787"])
         try:
+            # NOTE: the workers expect to connect with the scheduler on predefined port
             scheduler_port_arg_index = scheduler_cmd.index("--port")
-            scheduler_cmd[scheduler_port_arg_index + 1] = "8786"
+            scheduler_cmd[scheduler_port_arg_index + 1] = f"{_SCHEDULER_PORT}"
         except ValueError:
-            scheduler_cmd.extend(["--port", "8786"])
+            scheduler_cmd.extend(["--port", f"{_SCHEDULER_PORT}"])
         self.log.debug("created scheduler command: %s", f"{scheduler_cmd=}")
 
         async for dask_scheduler_start_result in start_service(
@@ -110,7 +114,7 @@ class OsparcBackend(DBBackendBase):
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
         worker_env.update(
             {
-                "DASK_SCHEDULER_URL": f"tls://{dask_scheduler_name}:8786",
+                "DASK_SCHEDULER_URL": f"tls://{dask_scheduler_name}:{_SCHEDULER_PORT}",
                 "DASK_WORKER_NAME": worker.name,
             }
         )
