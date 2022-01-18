@@ -5,7 +5,7 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
-from traitlets import Unicode
+from traitlets.traitlets import Unicode
 
 from .settings import AppSettings
 from .utils import (
@@ -66,7 +66,7 @@ class OsparcBackend(DBBackendBase):
 
     async def do_setup(self) -> None:
         await super().do_setup()
-        self.settings = AppSettings()
+        self.settings = AppSettings()  # type: ignore
         self.docker_client = Docker()
         self.log.info(
             "osparc-gateway-server application settings:\n%s",
@@ -150,9 +150,6 @@ class OsparcBackend(DBBackendBase):
         dask_scheduler_name = dask_scheduler["Spec"]["Name"]
         worker_env = self.get_worker_env(worker.cluster)
         worker_env.update({"DASK_SCHEDULER_URL": f"tls://{dask_scheduler_name}:8786"})
-        self.log.error(
-            "worker command: %s", self.get_worker_command(worker.cluster, worker.name)
-        )
         # NOTE: the hostname of the gateway API must be modified so that the worker can
         # send heartbeats to the gateway
         # also the name must be set so that the scheduler knows which worker to wait for
