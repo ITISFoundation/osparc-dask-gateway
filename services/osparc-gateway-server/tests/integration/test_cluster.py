@@ -94,9 +94,9 @@ async def assert_services_stability(docker_client: Docker, service_name: str):
             assert (
                 len(service_tasks) == 1
             ), f"The service is not stable it shows {service_tasks}"
-            print(f"the service {service_name} is stable after {n} seconds...")
+            print(f"the {service_name=} is stable after {n} seconds...")
             await asyncio.sleep(1)
-        print(f"service stable!!")
+        print(f"{service_name=} stable!!")
 
     await asyncio.gather(*[_check_stability(s) for s in list_services])
 
@@ -167,11 +167,11 @@ async def test_clusters_start_stop(
             # this list is not ordered
             assert len(list_services) == 2
             for s in list_services:
-                assert list_services[1]["Spec"]["Name"] in [
+                assert s["Spec"]["Name"] in [
                     "cluster_1_scheduler",
                     "cluster_2_scheduler",
                 ]
-                assert list_services[1]["Spec"]["Labels"] in [
+                assert s["Spec"]["Labels"] in [
                     {"cluster_id": "1"},
                     {"cluster_id": "2"},
                 ]

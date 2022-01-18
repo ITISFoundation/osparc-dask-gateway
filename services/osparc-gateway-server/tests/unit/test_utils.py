@@ -147,7 +147,7 @@ async def test_create_service_config(
     fake_cluster: Cluster,
 ):
     # let's create some fake service config
-    settings = AppSettings()
+    settings = AppSettings()  # type: ignore
     service_env = faker.pydict()
     service_name = faker.name()
     network_id = faker.uuid4()

@@ -1,3 +1,7 @@
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
+
+
 import asyncio
 import json
 from pathlib import Path
