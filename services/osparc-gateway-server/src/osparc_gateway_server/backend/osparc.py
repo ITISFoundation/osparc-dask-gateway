@@ -1,6 +1,5 @@
 import asyncio
 from typing import Any, AsyncGenerator, Dict, List, Union
-from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
@@ -10,39 +9,12 @@ from traitlets.traitlets import Unicode
 from .settings import AppSettings
 from .utils import (
     DockerSecret,
-    create_or_update_secret,
+    create_docker_secrets_from_tls_certs_for_cluster,
     delete_secrets,
     is_service_task_running,
     start_service,
     stop_service,
 )
-
-
-async def _create_docker_secrets_from_tls_certs_for_cluster(
-    docker_client: Docker, backend: DBBackendBase, cluster: Cluster
-) -> List[DockerSecret]:
-    tls_cert_path, tls_key_path = backend.get_tls_paths(cluster)
-    return [
-        await create_or_update_secret(
-            docker_client,
-            f"{tls_cert_path}",
-            cluster,
-            secret_data=cluster.tls_cert.decode(),
-        ),
-        await create_or_update_secret(
-            docker_client,
-            f"{tls_key_path}",
-            cluster,
-            secret_data=cluster.tls_key.decode(),
-        ),
-    ]
-
-
-def _replace_netloc_in_url(original_url: str, settings: AppSettings) -> str:
-    splitted_url: SplitResult = urlsplit(original_url)
-    port = splitted_url.netloc.split(":")[1]
-    new_netloc = f"{settings.GATEWAY_SERVER_NAME}:{port}"
-    return urlunsplit(splitted_url._replace(netloc=new_netloc))
 
 
 class OsparcBackend(DBBackendBase):
@@ -82,7 +54,7 @@ class OsparcBackend(DBBackendBase):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug(f"starting cluster {cluster=}")
         self.cluster_secrets.extend(
-            await _create_docker_secrets_from_tls_certs_for_cluster(
+            await create_docker_secrets_from_tls_certs_for_cluster(
                 self.docker_client, self, cluster
             )
         )
@@ -104,15 +76,7 @@ class OsparcBackend(DBBackendBase):
         except ValueError:
             scheduler_cmd.extend(["--port", "8786"])
         self.log.debug("created scheduler command: %s", f"{scheduler_cmd=}")
-        # NOTE: the hostname of the gateway API must be modified so that the scheduler can
-        # send heartbeats to the gateway
-        scheduler_env.update(
-            {
-                "DASK_GATEWAY_API_URL": _replace_netloc_in_url(
-                    self.api_url, self.settings
-                ),
-            }
-        )
+
         async for dask_scheduler_start_result in start_service(
             self.docker_client,
             self.settings,
@@ -122,6 +86,7 @@ class OsparcBackend(DBBackendBase):
             [c for c in self.cluster_secrets if c.cluster.name == cluster.name],
             cmd=scheduler_cmd,
             labels={"cluster_id": f"{cluster.id}"},
+            gateway_api_url=self.api_url,
         ):
             yield dask_scheduler_start_result
 
@@ -149,15 +114,10 @@ class OsparcBackend(DBBackendBase):
         self.log.debug("associated scheduler is %s", f"{dask_scheduler=}")
         dask_scheduler_name = dask_scheduler["Spec"]["Name"]
         worker_env = self.get_worker_env(worker.cluster)
-        worker_env.update({"DASK_SCHEDULER_URL": f"tls://{dask_scheduler_name}:8786"})
-        # NOTE: the hostname of the gateway API must be modified so that the worker can
-        # send heartbeats to the gateway
-        # also the name must be set so that the scheduler knows which worker to wait for
+        # NOTE: the name must be set so that the scheduler knows which worker to wait for
         worker_env.update(
             {
-                "DASK_GATEWAY_API_URL": _replace_netloc_in_url(
-                    self.api_url, self.settings
-                ),
+                "DASK_SCHEDULER_URL": f"tls://{dask_scheduler_name}:8786",
                 "DASK_WORKER_NAME": worker.name,
             }
         )
@@ -170,6 +130,7 @@ class OsparcBackend(DBBackendBase):
             [c for c in self.cluster_secrets if c.cluster.name == worker.cluster.name],
             cmd=None,
             labels={"cluster_id": f"{worker.cluster.id}", "worker_id": f"{worker.id}"},
+            gateway_api_url=self.api_url,
         ):
             yield dask_sidecar_start_result
 
@@ -187,8 +148,7 @@ class OsparcBackend(DBBackendBase):
         self, cluster_service: Union[Worker, Cluster]
     ) -> bool:
         self.log.debug("checking worker status: %s", f"{cluster_service=}")
-        service_id = cluster_service.state.get("service_id")
-        if service_id:
+        if service_id := cluster_service.state.get("service_id"):
             self.log.debug("checking service %s status", f"{service_id=}")
             try:
                 service = await self.docker_client.services.inspect(service_id)
@@ -203,7 +163,7 @@ class OsparcBackend(DBBackendBase):
                 self.log.exception(
                     "Error while checking container with id %s", f"{service_id=}"
                 )
-        self.log.error(
+        self.log.warning(
             "Worker %s does not have a service id! That is not expected!",
             f"{cluster_service=}",
         )

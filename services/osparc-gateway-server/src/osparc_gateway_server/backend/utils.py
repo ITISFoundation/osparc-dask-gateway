@@ -7,7 +7,8 @@ from typing import Any, AsyncGenerator, Dict, List, NamedTuple, Optional
 
 import aiodocker
 from aiodocker import Docker
-from dask_gateway_server.backends.db_base import Cluster
+from dask_gateway_server.backends.db_base import Cluster, DBBackendBase
+from yarl import URL
 
 from .settings import AppSettings
 
@@ -181,6 +182,7 @@ async def start_service(
     cluster_secrets: List[DockerSecret],
     cmd: Optional[List[str]],
     labels: Dict[str, str],
+    gateway_api_url: str,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     service_parameters = {}
     try:
@@ -188,6 +190,10 @@ async def start_service(
         env = deepcopy(base_env)
         env.update(
             {
+                # NOTE: the hostname of the gateway API must be
+                # modified so that the scheduler/sidecar can
+                # send heartbeats to the gateway
+                "DASK_GATEWAY_API_URL": f"{URL(gateway_api_url).with_host(settings.GATEWAY_SERVER_NAME)}",
                 "SIDECAR_COMP_SERVICES_SHARED_FOLDER": _SHARED_COMPUTATIONAL_FOLDER_IN_SIDECAR,
                 "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": settings.COMPUTATIONAL_SIDECAR_VOLUME_NAME,
                 "LOG_LEVEL": settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL,
@@ -257,3 +263,23 @@ async def stop_service(
 
     except aiodocker.DockerContainerError:
         logger.exception("Error while stopping service with id %s", f"{service_id=}")
+
+
+async def create_docker_secrets_from_tls_certs_for_cluster(
+    docker_client: Docker, backend: DBBackendBase, cluster: Cluster
+) -> List[DockerSecret]:
+    tls_cert_path, tls_key_path = backend.get_tls_paths(cluster)
+    return [
+        await create_or_update_secret(
+            docker_client,
+            f"{tls_cert_path}",
+            cluster,
+            secret_data=cluster.tls_cert.decode(),
+        ),
+        await create_or_update_secret(
+            docker_client,
+            f"{tls_key_path}",
+            cluster,
+            secret_data=cluster.tls_key.decode(),
+        ),
+    ]

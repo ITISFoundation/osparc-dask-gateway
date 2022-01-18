@@ -139,12 +139,21 @@ async def fake_cluster(faker: Faker) -> Cluster:
     return Cluster(id=faker.uuid4(), name=faker.pystr(), status=JobStatus.CREATED)
 
 
+@pytest.fixture
+async def docker_secret_cleaner(
+    async_docker_client: aiodocker.Docker, fake_cluster: Cluster
+) -> AsyncIterator:
+    yield
+    await delete_secrets(async_docker_client, fake_cluster)
+
+
 async def test_create_service_config(
     docker_swarm,
     async_docker_client: aiodocker.Docker,
     minimal_config: None,
     faker: Faker,
     fake_cluster: Cluster,
+    docker_secret_cleaner,
 ):
     # let's create some fake service config
     settings = AppSettings()  # type: ignore
@@ -222,6 +231,7 @@ async def test_create_or_update_docker_secrets_with_invalid_call_raises(
     async_docker_client: aiodocker.Docker,
     fake_cluster: Cluster,
     faker: Faker,
+    docker_secret_cleaner,
 ):
     with pytest.raises(ValueError):
         await create_or_update_secret(
@@ -237,6 +247,7 @@ async def test_create_or_update_docker_secrets(
     fake_secret_file: Path,
     fake_cluster: Cluster,
     faker: Faker,
+    docker_secret_cleaner,
 ):
     list_of_secrets = await async_docker_client.secrets.list(
         filters={"label": f"cluster_id={fake_cluster.id}"}
