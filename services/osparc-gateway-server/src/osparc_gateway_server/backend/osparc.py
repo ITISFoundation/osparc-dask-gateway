@@ -3,6 +3,7 @@ from typing import Any, AsyncGenerator, Dict, Final, List, Union
 
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
+from dask_gateway_server.backends.base import PublicException
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
 
 from .settings import AppSettings
@@ -108,6 +109,11 @@ class OsparcBackend(DBBackendBase):
         dask_scheduler = await self.docker_client.services.inspect(
             dask_scheduler_service_id
         )
+        if not dask_scheduler:
+            raise PublicException(
+                f"Cluster {worker.cluster.id} associated dask-scheduler is not running!"
+            )
+
         self.log.debug("associated scheduler is %s", f"{dask_scheduler=}")
         dask_scheduler_name = dask_scheduler["Spec"]["Name"]
         worker_env = self.get_worker_env(worker.cluster)
