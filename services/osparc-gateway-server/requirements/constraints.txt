@@ -1,0 +1,1 @@
+numpy<1.22.0 # constrain such that it is available on piwheels.org (see https://www.piwheels.org/project/numpy/) until newer version are available

@@ -1,3 +1,5 @@
+--constraint ./constraints.txt
+
 aiodocker
 bokeh
 dask-gateway-server
