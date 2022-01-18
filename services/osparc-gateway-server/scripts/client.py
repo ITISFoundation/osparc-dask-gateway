@@ -1,7 +1,9 @@
+import time
+
 from dask_gateway import BasicAuth, Gateway
 
 auth = BasicAuth(username=None, password="asdf")
-gateway = Gateway(address="http://172.16.8.64:8000", auth=auth)
+gateway = Gateway(address="http://127.0.0.1:8000", auth=auth)
 
 # clusters = []
 # for i in range(8):
@@ -37,7 +39,6 @@ print("Cluster 1", total.result())
 
 total2 = client2.submit(sum, B2)
 print("Cluster 2", total2.result())
-import time
 
 while True:
     time.sleep(5)
