@@ -9,7 +9,7 @@ services:
     networks:
       - dask_net
     environment:
-      - GATEWAY_WORKERS_NETWORK=dask-gateway_dask_net
+      - GATEWAY_WORKERS_NETWORK=${SWARM_STACK_NAME:?swarm_stack_name_required}_dask_net
       - GATEWAY_SERVER_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_osparc-gateway-server
       - COMPUTATIONAL_SIDECAR_VOLUME_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_sidecar_data
       - COMPUTATIONAL_SIDECAR_IMAGE=${COMPUTATIONAL_SIDECAR_IMAGE:-local/dask-sidecar:production}
