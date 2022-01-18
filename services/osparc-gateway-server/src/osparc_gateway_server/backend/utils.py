@@ -48,6 +48,7 @@ async def get_network_id(
     if not networks:
         raise ValueError(f"network {network_name} not found")
     if len(networks) > 1:
+        # NOTE: this is impossible at the moment. test_utils::test_get_network_id proves it
         raise ValueError(
             f"network {network_name} is ambiguous, too many network founds: {networks=}"
         )
@@ -145,7 +146,7 @@ async def create_or_update_secret(
     if not data and file_path:
         data = file_path.read_text()
 
-    docker_secret_name = f"{target_file_name}_{cluster.id}"
+    docker_secret_name = f"{Path( target_file_name).name}_{cluster.id}"
 
     secrets = await docker_client.secrets.list(filters={"name": docker_secret_name})
     if secrets:

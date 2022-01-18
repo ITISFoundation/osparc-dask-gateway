@@ -1,7 +1,7 @@
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
 
-import asyncio
+from multiprocessing.sharedctypes import Value
 from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict
 from unittest import mock
@@ -105,50 +105,32 @@ async def test_is_task_running(
         )
 
 
-@pytest.fixture
-async def docker_network(
-    async_docker_client: aiodocker.Docker, network_driver: str, faker: Faker
-) -> AsyncIterator[Callable[..., Awaitable[Dict[str, Any]]]]:
-    networks = []
-
-    async def creator(**network_config_kwargs) -> Dict[str, Any]:
-        network: aiodocker.docker.DockerNetwork = (
-            await async_docker_client.networks.create(
-                config={"Name": faker.uuid4(), "Driver": network_driver}
-                | network_config_kwargs
-            )
-        )
-        networks.append(network)
-        return await network.show()
-
-    yield creator
-    # cleanup
-    await asyncio.gather(*[network.delete() for network in networks])
-
-
-@pytest.mark.parametrize(
-    "network_driver, expected_found", [("bridge", False), ("overlay", True)]
-)
 async def test_get_network_id(
     docker_swarm,
     async_docker_client: aiodocker.Docker,
     docker_network: Callable[..., Awaitable[Dict[str, Any]]],
     mocked_logger: mock.MagicMock,
-    expected_found: bool,
 ):
     # wrong name shall raise
     with pytest.raises(ValueError):
         await get_network_id(async_docker_client, "a_fake_network_name", mocked_logger)
-    # create 1 network
-    network1 = await docker_network()
-    if expected_found:
-        network_id = await get_network_id(
-            async_docker_client, network1["Name"], mocked_logger
-        )
-        assert network_id == network1["Id"]
-    else:
-        with pytest.raises(ValueError):
-            await get_network_id(async_docker_client, network1["Name"], mocked_logger)
+    # create 1 bridge network, shall raise when looking for it
+    bridge_network = await docker_network(**{"Driver": "bridge"})
+    with pytest.raises(ValueError):
+        await get_network_id(async_docker_client, bridge_network["Name"], mocked_logger)
+    # create 1 overlay network
+    overlay_network = await docker_network()
+    network_id = await get_network_id(
+        async_docker_client, overlay_network["Name"], mocked_logger
+    )
+    assert network_id == overlay_network["Id"]
+
+    # create a second overlay network with the same name, shall raise on creation, so not possible
+    with pytest.raises(aiodocker.exceptions.DockerError):
+        await docker_network(**{"Name": overlay_network["Name"]})
+    assert (
+        True
+    ), "If it is possible to have 2 networks with the same name, this must be handled"
 
 
 def test_create_service_parameters(minimal_config: None, faker: Faker):
@@ -194,6 +176,21 @@ async def fake_cluster(faker: Faker) -> Cluster:
     return Cluster(id=faker.uuid4(), name=faker.pystr(), status=JobStatus.CREATED)
 
 
+async def test_create_or_update_docker_secrets_with_invalid_call_raises(
+    docker_swarm,
+    async_docker_client: aiodocker.Docker,
+    fake_secret_file: Path,
+    fake_cluster: Cluster,
+    faker: Faker,
+):
+    with pytest.raises(ValueError):
+        await create_or_update_secret(
+            async_docker_client,
+            faker.file_path(),
+            fake_cluster,
+        )
+
+
 async def test_create_or_update_docker_secrets(
     docker_swarm,
     async_docker_client: aiodocker.Docker,
@@ -203,12 +200,10 @@ async def test_create_or_update_docker_secrets(
 ):
     file_original_size = fake_secret_file.stat().st_size
     # check secret creation
-    secret_name = faker.pystr()
-    worker_env = ["some_fake_env_related_to_secret_for_worker"]
-    scheduler_env = ["some_fake_env_related_to_secret_for_scheduler"]
+    secret_target_file_name = faker.file_path()
     created_secret: DockerSecret = await create_or_update_secret(
         async_docker_client,
-        secret_name,
+        secret_target_file_name,
         fake_cluster,
         file_path=fake_secret_file,
     )
@@ -230,7 +225,7 @@ async def test_create_or_update_docker_secrets(
 
     updated_secret: DockerSecret = await create_or_update_secret(
         async_docker_client,
-        secret_name,
+        secret_target_file_name,
         fake_cluster,
         file_path=fake_secret_file,
     )
@@ -241,12 +236,12 @@ async def test_create_or_update_docker_secrets(
     assert updated_secret != created_secret
 
     # create a second one
-    secret_name2 = faker.pystr()
+    secret_target_file_name2 = faker.file_path()
     created_secret: DockerSecret = await create_or_update_secret(
         async_docker_client,
-        secret_name2,
+        secret_target_file_name2,
         fake_cluster,
-        file_path=fake_secret_file,
+        secret_data=faker.text(),
     )
     secrets = await async_docker_client.secrets.list()
     assert len(secrets) == 2
