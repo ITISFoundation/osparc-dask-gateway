@@ -77,7 +77,7 @@ def create_service_config(
                 "SecretName": s.secret_name,
                 "SecretID": s.secret_id,
                 "File": {
-                    "Name": f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.secret_file_name}",
+                    "Name": f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / Path(s.secret_file_name).name}",
                     "UID": "0",
                     "GID": "0",
                     "Mode": 0x777,
@@ -89,7 +89,7 @@ def create_service_config(
             if env_value == s.secret_file_name:
                 env_updates[
                     env_name
-                ] = f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / s.secret_file_name}"
+                ] = f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / Path(s.secret_file_name).name}"
         env.update(env_updates)
     mounts = [
         # docker socket needed to use the docker api
@@ -114,7 +114,6 @@ def create_service_config(
         "Init": True,
         "Mounts": mounts,
         "Secrets": container_secrets,
-        # "Command": ["ls", "-tlah", f"{_DASK_KEY_CERT_PATH_IN_SIDECAR}"],
     }
     if cmd:
         container_config["Command"] = cmd

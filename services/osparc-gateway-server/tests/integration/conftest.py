@@ -50,10 +50,10 @@ def gateway_password(faker: Faker) -> str:
 
 @pytest.fixture()
 def cluster_directory(tmp_path, faker: Faker) -> Path:
-    dir = Path(tmp_path / faker.pystr())
-    dir.mkdir(parents=True, exist_ok=True)
-    assert dir.exists()
-    return dir
+    cluster_dir = Path(tmp_path / faker.pystr())
+    cluster_dir.mkdir(parents=True, exist_ok=True)
+    assert cluster_dir.exists()
+    return cluster_dir
 
 
 def _convert_to_dict(c: Union[traitlets.config.Config, Dict]) -> Dict[str, Any]:

@@ -1,7 +1,7 @@
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
 
-from multiprocessing.sharedctypes import Value
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict
 from unittest import mock
@@ -12,6 +12,7 @@ from dask_gateway_server.backends.db_base import Cluster, JobStatus
 from faker import Faker
 from osparc_gateway_server.backend.settings import AppSettings
 from osparc_gateway_server.backend.utils import (
+    _DASK_KEY_CERT_PATH_IN_SIDECAR,
     DockerSecret,
     create_or_update_secret,
     create_service_config,
@@ -133,17 +134,51 @@ async def test_get_network_id(
     ), "If it is possible to have 2 networks with the same name, this must be handled"
 
 
-def test_create_service_parameters(minimal_config: None, faker: Faker):
+@pytest.fixture
+async def fake_cluster(faker: Faker) -> Cluster:
+    return Cluster(id=faker.uuid4(), name=faker.pystr(), status=JobStatus.CREATED)
+
+
+async def test_create_service_config(
+    docker_swarm,
+    async_docker_client: aiodocker.Docker,
+    minimal_config: None,
+    faker: Faker,
+    fake_cluster: Cluster,
+):
+    # let's create some fake service config
     settings = AppSettings()
-    worker_env = faker.pydict()
+    service_env = faker.pydict()
     service_name = faker.name()
     network_id = faker.uuid4()
-    secrets = []
     cmd = faker.pystr()
-    fake_labels = {"some_fake_lable": faker.pystr()}
+    fake_labels = faker.pydict()
+
+    # create a second one
+    secrets = [
+        await create_or_update_secret(
+            async_docker_client,
+            faker.file_path(),
+            fake_cluster,
+            secret_data=faker.text(),
+        )
+        for n in range(3)
+    ]
+
+    assert len(await async_docker_client.secrets.list()) == 3
+
+    # we shall have some env that tells the service where the secret is located
+    expected_service_env = deepcopy(service_env)
+    for s in secrets:
+        fake_env_key = faker.pystr()
+        service_env[fake_env_key] = s.secret_file_name
+        expected_service_env[
+            fake_env_key
+        ] = f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / Path(s.secret_file_name).name}"
+
     service_parameters = create_service_config(
         settings=settings,
-        service_env=worker_env,
+        service_env=service_env,
         service_name=service_name,
         network_id=network_id,
         service_secrets=secrets,
@@ -153,7 +188,8 @@ def test_create_service_parameters(minimal_config: None, faker: Faker):
     assert service_parameters
     assert service_parameters["name"] == service_name
     assert network_id in service_parameters["networks"]
-    for env_key, env_value in worker_env.items():
+
+    for env_key, env_value in expected_service_env.items():
         assert env_key in service_parameters["task_template"]["ContainerSpec"]["Env"]
         assert (
             service_parameters["task_template"]["ContainerSpec"]["Env"][env_key]
@@ -161,6 +197,16 @@ def test_create_service_parameters(minimal_config: None, faker: Faker):
         )
     assert service_parameters["task_template"]["ContainerSpec"]["Command"] == cmd
     assert service_parameters["labels"] == fake_labels
+    assert len(service_parameters["task_template"]["ContainerSpec"]["Secrets"]) == 3
+    for service_secret, original_secret in zip(
+        service_parameters["task_template"]["ContainerSpec"]["Secrets"], secrets
+    ):
+        assert service_secret["SecretName"] == original_secret.secret_name
+        assert service_secret["SecretID"] == original_secret.secret_id
+        assert (
+            service_secret["File"]["Name"]
+            == f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / Path(original_secret.secret_file_name).name}"
+        )
 
 
 @pytest.fixture
@@ -171,15 +217,9 @@ def fake_secret_file(tmp_path) -> Path:
     return fake_secret_file
 
 
-@pytest.fixture
-async def fake_cluster(faker: Faker) -> Cluster:
-    return Cluster(id=faker.uuid4(), name=faker.pystr(), status=JobStatus.CREATED)
-
-
 async def test_create_or_update_docker_secrets_with_invalid_call_raises(
     docker_swarm,
     async_docker_client: aiodocker.Docker,
-    fake_secret_file: Path,
     fake_cluster: Cluster,
     faker: Faker,
 ):
