@@ -9,7 +9,6 @@ aiodocker==0.21.0
 aiohttp==3.8.1
     # via
     #   aiodocker
-    #   dask-gateway
     #   dask-gateway-server
 aiosignal==1.2.0
     # via aiohttp
@@ -23,26 +22,12 @@ cffi==1.15.0
     # via cryptography
 charset-normalizer==2.0.10
     # via aiohttp
-click==8.0.3
-    # via distributed
-cloudpickle==2.0.0
-    # via
-    #   dask
-    #   distributed
 colorlog==6.6.0
     # via dask-gateway-server
 cryptography==36.0.1
     # via dask-gateway-server
-dask==2022.1.0
-    # via
-    #   dask-gateway
-    #   distributed
-dask-gateway==0.9.0
-    # via -r requirements/_base.in
 dask-gateway-server==0.9.0
     # via -r requirements/_base.in
-distributed==2022.1.0
-    # via dask-gateway
 dnspython==2.1.0
     # via email-validator
 email-validator==1.1.3
@@ -51,26 +36,16 @@ frozenlist==1.2.0
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2022.1.0
-    # via dask
 greenlet==1.1.2
     # via sqlalchemy
-heapdict==1.0.1
-    # via zict
 idna==3.3
     # via
     #   email-validator
     #   yarl
 jinja2==3.0.3
-    # via
-    #   bokeh
-    #   distributed
-locket==0.2.1
-    # via partd
+    # via bokeh
 markupsafe==2.0.1
     # via jinja2
-msgpack==1.0.3
-    # via distributed
 multidict==5.2.0
     # via
     #   aiohttp
@@ -78,16 +53,9 @@ multidict==5.2.0
 numpy==1.22.1
     # via bokeh
 packaging==21.3
-    # via
-    #   bokeh
-    #   dask
-    #   distributed
-partd==1.2.0
-    # via dask
+    # via bokeh
 pillow==9.0.0
     # via bokeh
-psutil==5.9.0
-    # via distributed
 pycparser==2.21
     # via cffi
 pydantic==1.9.0
@@ -97,25 +65,11 @@ pyparsing==3.0.6
 python-dotenv==0.19.2
     # via pydantic
 pyyaml==6.0
-    # via
-    #   bokeh
-    #   dask
-    #   distributed
-sortedcontainers==2.4.0
-    # via distributed
+    # via bokeh
 sqlalchemy==1.4.29
     # via -r requirements/_base.in
-tblib==1.7.0
-    # via distributed
-toolz==0.11.2
-    # via
-    #   dask
-    #   distributed
-    #   partd
 tornado==6.1
-    # via
-    #   bokeh
-    #   distributed
+    # via bokeh
 traitlets==5.1.1
     # via dask-gateway-server
 typing-extensions==4.0.1
@@ -125,8 +79,3 @@ typing-extensions==4.0.1
     #   pydantic
 yarl==1.7.2
     # via aiohttp
-zict==2.0.0
-    # via distributed
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools
