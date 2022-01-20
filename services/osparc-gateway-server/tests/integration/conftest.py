@@ -17,6 +17,7 @@ from _host_helpers import get_this_computer_ip
 from dask_gateway_server.app import DaskGateway
 from faker import Faker
 from osparc_gateway_server.backend.osparc import OsparcBackend
+from osparc_gateway_server.backend.utils import OSPARC_SCHEDULER_PORT
 from tenacity._asyncio import AsyncRetrying
 from tenacity.wait import wait_fixed
 
@@ -71,8 +72,29 @@ def _convert_to_dict(c: Union[traitlets.config.Config, Dict]) -> Dict[str, Any]:
 
 
 @pytest.fixture
+def mock_scheduler_cmd_modifications(mocker):
+    """This mock is necessary since:
+    If the dask-gateway-server is running in the host then:
+    - dask-scheduler must start with "" for --host, so the dask-scheduler defines its IP as being in docker_gw_bridge (172.18.0.X), accessible from the host
+    When the dask-gateway-server is running as a docker container, then the --host must be set
+    as "cluster_X_scheduler" since this is the hostname of the container and resolves into the dask-gateway network
+    """
+    mocker.patch(
+        "osparc_gateway_server.backend.osparc.get_osparc_scheduler_cmd_modifications",
+        autospec=True,
+        return_value={
+            "--dashboard-address": ":8787",
+            "--port": f"{OSPARC_SCHEDULER_PORT}",
+        },
+    )
+
+
+@pytest.fixture
 async def local_dask_gateway_server(
-    minimal_config: None, gateway_password: str, cluster_directory: Path
+    mock_scheduler_cmd,
+    minimal_config: None,
+    gateway_password: str,
+    cluster_directory: Path,
 ) -> AsyncIterator[DaskGatewayServer]:
     """this code is more or less copy/pasted from dask-gateway repo"""
     c = traitlets.config.Config()

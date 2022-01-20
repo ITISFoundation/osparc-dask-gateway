@@ -8,16 +8,16 @@ from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
 
 from .settings import AppSettings
 from .utils import (
+    OSPARC_SCHEDULER_PORT,
     DockerSecret,
     create_docker_secrets_from_tls_certs_for_cluster,
     delete_secrets,
+    get_osparc_scheduler_cmd_modifications,
     is_service_task_running,
     modify_cmd_argument,
     start_service,
     stop_service,
 )
-
-_SCHEDULER_PORT: Final[int] = 8786
 
 
 class OsparcBackend(DBBackendBase):
@@ -59,20 +59,14 @@ class OsparcBackend(DBBackendBase):
             "created secrets for TLS certification: %s", f"{self.cluster_secrets=}"
         )
 
-        # now we need a scheduler
+        # now we need a scheduler (get these auto-generated entries from dask-gateway base class)
         scheduler_env = self.get_scheduler_env(cluster)
         scheduler_cmd = self.get_scheduler_command(cluster)
+        # we need a few modifications for running in docker swarm
         scheduler_service_name = f"cluster_{cluster.id}_scheduler"
-
-        # NOTE: the healthcheck of itisfoundation/dask-sidecar expects the dashboard
-        # to be on port 8787 (see https://github.com/ITISFoundation/osparc-simcore/blob/f3d98dccdae665d23701b0db4ee917364a0fbd99/services/dask-sidecar/Dockerfile)
-        modifications = {
-            "--dashboard-address": ":8787",
-            "--port": f"{_SCHEDULER_PORT}",
-            "--host": scheduler_service_name,
-        }
+        modifications = get_osparc_scheduler_cmd_modifications(scheduler_service_name)
         for key, value in modifications.items():
-            modify_cmd_argument(scheduler_cmd, key, value)
+            scheduler_cmd = modify_cmd_argument(scheduler_cmd, key, value)
 
         async for dask_scheduler_start_result in start_service(
             self.docker_client,
@@ -107,7 +101,7 @@ class OsparcBackend(DBBackendBase):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("received call to start worker as %s", f"{worker=}")
         worker_env = self.get_worker_env(worker.cluster)
-        dask_scheduler_url = worker.cluster.scheduler_address
+        dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_PORT}"  #  worker.cluster.scheduler_address
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
         worker_env.update(
             {

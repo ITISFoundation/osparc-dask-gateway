@@ -3,7 +3,7 @@ import json
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, NamedTuple, Optional
+from typing import Any, AsyncGenerator, Dict, Final, List, NamedTuple, Optional
 
 import aiodocker
 from aiodocker import Docker
@@ -284,6 +284,22 @@ async def create_docker_secrets_from_tls_certs_for_cluster(
             secret_data=cluster.tls_key.decode(),
         ),
     ]
+
+
+OSPARC_SCHEDULER_PORT: Final[int] = 8786
+
+
+def get_osparc_scheduler_cmd_modifications(
+    scheduler_service_name: str,
+) -> Dict[str, str]:
+    # NOTE: the healthcheck of itisfoundation/dask-sidecar expects the dashboard
+    # to be on port 8787
+    # (see https://github.com/ITISFoundation/osparc-simcore/blob/f3d98dccdae665d23701b0db4ee917364a0fbd99/services/dask-sidecar/Dockerfile)
+    return {
+        "--dashboard-address": ":8787",
+        "--port": f"{OSPARC_SCHEDULER_PORT}",
+        "--host": scheduler_service_name,
+    }
 
 
 def modify_cmd_argument(

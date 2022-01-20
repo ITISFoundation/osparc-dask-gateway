@@ -204,8 +204,6 @@ async def test_cluster_scale(
     clusters = await gateway_client.list_clusters()
     assert clusters == []
 
-    await asyncio.sleep(1000000)
-
     # create a cluster
     async with gateway_client.new_cluster() as cluster:
 
