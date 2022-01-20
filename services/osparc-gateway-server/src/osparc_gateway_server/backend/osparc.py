@@ -1,9 +1,8 @@
 import asyncio
-from typing import Any, AsyncGenerator, Dict, Final, List, Union
+from typing import Any, AsyncGenerator, Dict, List, Union
 
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
-from dask_gateway_server.backends.base import PublicException
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
 
 from .settings import AppSettings
