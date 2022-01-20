@@ -12,6 +12,7 @@ from .utils import (
     create_docker_secrets_from_tls_certs_for_cluster,
     delete_secrets,
     is_service_task_running,
+    modify_cmd_argument,
     start_service,
     stop_service,
 )
@@ -62,21 +63,16 @@ class OsparcBackend(DBBackendBase):
         scheduler_env = self.get_scheduler_env(cluster)
         scheduler_cmd = self.get_scheduler_command(cluster)
         scheduler_service_name = f"cluster_{cluster.id}_scheduler"
-        try:
-            # NOTE: the healthcheck of itisfoundation/dask-sidecar expects the dashboard to be on port 8787
-            dashboard_address_arg_index = scheduler_cmd.index("--dashboard-address")
-            scheduler_cmd[dashboard_address_arg_index + 1] = ":8787"
-        except ValueError:
-            scheduler_cmd.extend(["--dashboard-address", ":8787"])
-        try:
-            # NOTE: the workers expect to connect with the scheduler on predefined port
-            scheduler_port_arg_index = scheduler_cmd.index("--port")
-            scheduler_cmd[scheduler_port_arg_index + 1] = f"{_SCHEDULER_PORT}"
-            scheduler_host_arg_index = scheduler_cmd.index("--host")
-            scheduler_cmd[scheduler_host_arg_index + 1] = scheduler_service_name
-        except ValueError:
-            scheduler_cmd.extend(["--port", f"{_SCHEDULER_PORT}"])
-        self.log.debug("created scheduler command: %s", f"{scheduler_cmd=}")
+
+        # NOTE: the healthcheck of itisfoundation/dask-sidecar expects the dashboard
+        # to be on port 8787 (see https://github.com/ITISFoundation/osparc-simcore/blob/f3d98dccdae665d23701b0db4ee917364a0fbd99/services/dask-sidecar/Dockerfile)
+        modifications = {
+            "--dashboard-address": ":8787",
+            "--port": f"{_SCHEDULER_PORT}",
+            "--host": scheduler_service_name,
+        }
+        for key, value in modifications.items():
+            modify_cmd_argument(scheduler_cmd, key, value)
 
         async for dask_scheduler_start_result in start_service(
             self.docker_client,
@@ -110,27 +106,8 @@ class OsparcBackend(DBBackendBase):
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("received call to start worker as %s", f"{worker=}")
-        dask_scheduler_service_id = worker.cluster.state.get("service_id")
-        dask_scheduler = await self.docker_client.services.inspect(
-            dask_scheduler_service_id
-        )
-        if not dask_scheduler:
-            raise PublicException(
-                f"Cluster {worker.cluster.id} associated dask-scheduler is not running!"
-            )
-
-        self.log.debug("associated scheduler is %s", f"{dask_scheduler=}")
-        dask_scheduler_name = dask_scheduler["Spec"]["Name"]
         worker_env = self.get_worker_env(worker.cluster)
-        dask_scheduler_url = f"tls://{dask_scheduler_name}:{_SCHEDULER_PORT}"
-        worker_cmd = self.get_worker_command(worker.cluster, worker.name)
-        try:
-            dask_worker_cmd_index = worker_cmd.index("dask-worker")
-            dask_scheduler_url = worker_cmd[dask_worker_cmd_index + 1]
-        except ValueError as exc:
-            raise PublicException(
-                f"Could not find TLS IP to connect to dask-scheduler in {worker_cmd=}"
-            ) from exc
+        dask_scheduler_url = worker.cluster.scheduler_address
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
         worker_env.update(
             {

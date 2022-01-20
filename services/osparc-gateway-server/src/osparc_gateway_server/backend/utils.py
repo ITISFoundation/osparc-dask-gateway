@@ -284,3 +284,15 @@ async def create_docker_secrets_from_tls_certs_for_cluster(
             secret_data=cluster.tls_key.decode(),
         ),
     ]
+
+
+def modify_cmd_argument(
+    cmd: List[str], argument_name: str, argument_value: str
+) -> List[str]:
+    modified_cmd = deepcopy(cmd)
+    try:
+        dashboard_address_arg_index = modified_cmd.index(argument_name)
+        modified_cmd[dashboard_address_arg_index + 1] = argument_value
+    except ValueError:
+        modified_cmd.extend([argument_name, argument_value])
+    return modified_cmd
