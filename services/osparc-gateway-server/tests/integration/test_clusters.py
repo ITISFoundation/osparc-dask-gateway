@@ -16,11 +16,7 @@ from tenacity._asyncio import AsyncRetrying
 from tenacity.stop import stop_after_delay
 from tenacity.wait import wait_fixed
 
-PASSWORD = "asdf"
-TMP_FOLDER = "/tmp/gateway"
 
-
-# TODO: add release-latest when possible
 @pytest.fixture(
     params=[
         "itisfoundation/dask-sidecar:master-github-latest",
