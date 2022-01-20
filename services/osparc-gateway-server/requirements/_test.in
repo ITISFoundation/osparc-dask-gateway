@@ -24,6 +24,7 @@ tenacity
 Faker
 
 # tools
+debugpy
 pylint
 coveralls
 codecov

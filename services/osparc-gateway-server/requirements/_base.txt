@@ -68,7 +68,7 @@ python-dotenv==0.19.2
     # via pydantic
 pyyaml==6.0
     # via bokeh
-sqlalchemy==1.4.29
+sqlalchemy==1.4.30
     # via -r requirements/_base.in
 tornado==6.1
     # via bokeh
