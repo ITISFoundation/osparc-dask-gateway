@@ -4,6 +4,7 @@ from typing import Any, AsyncGenerator, Dict, List, Union
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
+from osparc_gateway_server.remote_debug import setup_remote_debugging
 
 from .settings import AppSettings
 from .utils import (
@@ -34,6 +35,7 @@ class OsparcBackend(DBBackendBase):
 
     async def do_setup(self) -> None:
         self.settings = AppSettings()  # type: ignore
+        setup_remote_debugging(logger=self.log)
         self.docker_client = Docker()
         self.log.info(
             "osparc-gateway-server application settings:\n%s",
@@ -42,6 +44,7 @@ class OsparcBackend(DBBackendBase):
 
     async def do_cleanup(self) -> None:
         await self.docker_client.close()
+        self.log.info("osparc-gateway-server closed.")
 
     async def do_start_cluster(
         self, cluster: Cluster

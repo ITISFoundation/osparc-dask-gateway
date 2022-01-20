@@ -3,36 +3,24 @@
 """
 import logging
 
-from aiohttp import web
-from models_library.basic_types import BootModeEnum
-from servicelib.aiohttp.application_setup import ModuleCategory, app_module_setup
-
-from ._constants import APP_SETTINGS_KEY
-from .application_settings import ApplicationSettings
-
 logger = logging.getLogger(__name__)
 
 
-def setup_remote_debugging(app: web.Application):
-    application_settings: ApplicationSettings = app[APP_SETTINGS_KEY]
-    assert application_settings.boot_mode  # nosec
-    if application_settings.boot_mode == BootModeEnum.DEBUG:
-        try:
-            logger.debug("Enabling attach ptvsd ...")
-            #
-            # SEE https://github.com/microsoft/ptvsd#enabling-debugging
-            #
-            import ptvsd
+def setup_remote_debugging(logger: logging.Logger):
+    try:
+        logger.debug("Enabling attach ptvsd ...")
+        #
+        # SEE https://github.com/microsoft/ptvsd#enabling-debugging
+        #
+        import debugpy
 
-            REMOTE_DEBUGGING_PORT = 3000
-            ptvsd.enable_attach(
-                address=("0.0.0.0", REMOTE_DEBUGGING_PORT),
-            )
-        except ImportError as err:
-            raise Exception(
-                "Cannot enable remote debugging. Please install ptvsd first"
-            ) from err
+        REMOTE_DEBUGGING_PORT = 3000
+        debugpy.listen(("0.0.0.0", REMOTE_DEBUGGING_PORT))
+        # debugpy.wait_for_client()
 
-        logger.info(
-            "Remote debugging enabled: listening port %s", REMOTE_DEBUGGING_PORT
-        )
+    except ImportError as err:
+        raise Exception(
+            "Cannot enable remote debugging. Please install debugpy first"
+        ) from err
+
+    logger.info("Remote debugging enabled: listening port %s", REMOTE_DEBUGGING_PORT)
