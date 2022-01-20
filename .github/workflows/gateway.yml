@@ -126,6 +126,15 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: show system version
         run: ./ci/helpers/show_system_versions.bash
+      - uses: actions/cache@v2
+        name: getting cached data
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-osparc-gateway-server-${{ hashFiles('tests/requirements/ci.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-osparc-gateway-server-
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
       - name: build osparc-dask-gateway-server
         run: |
           make build && \
