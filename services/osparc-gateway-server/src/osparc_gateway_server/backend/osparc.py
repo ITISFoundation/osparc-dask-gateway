@@ -33,7 +33,6 @@ class OsparcBackend(DBBackendBase):
     cluster_secrets: List[DockerSecret] = []
 
     async def do_setup(self) -> None:
-        await super().do_setup()
         self.settings = AppSettings()  # type: ignore
         self.docker_client = Docker()
         self.log.info(
@@ -42,7 +41,6 @@ class OsparcBackend(DBBackendBase):
         )
 
     async def do_cleanup(self) -> None:
-        await super().do_cleanup()
         await self.docker_client.close()
 
     async def do_start_cluster(
