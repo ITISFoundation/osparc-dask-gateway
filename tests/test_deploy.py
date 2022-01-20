@@ -172,4 +172,6 @@ async def test_deployment(
     # now check all this is stable
     _SECONDS_STABLE = 6
     for n in range(_SECONDS_STABLE):
+        # NOTE: the scheduler_info gets auto-udpated by the dask-gateway internals
         assert workers == cluster.scheduler_info["workers"]
+        await asyncio.sleep(1)
