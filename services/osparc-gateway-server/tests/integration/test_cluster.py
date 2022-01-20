@@ -25,6 +25,7 @@ TMP_FOLDER = "/tmp/gateway"
     params=[
         "itisfoundation/dask-sidecar:master-github-latest",
         "itisfoundation/dask-sidecar:staging-github-latest",
+        "itisfoundation/dask-sidecar:release-github-latest",
     ]
 )
 def minimal_config(
