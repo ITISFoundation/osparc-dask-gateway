@@ -91,7 +91,7 @@ def mock_scheduler_cmd_modifications(mocker):
 
 @pytest.fixture
 async def local_dask_gateway_server(
-    mock_scheduler_cmd,
+    mock_scheduler_cmd_modifications,
     minimal_config: None,
     gateway_password: str,
     cluster_directory: Path,
