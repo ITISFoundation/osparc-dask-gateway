@@ -115,7 +115,7 @@ def create_service_config(
         "Init": True,
         "Mounts": mounts,
         "Secrets": container_secrets,
-        "Hostname": "cluster_1_scheduler",
+        "Hostname": service_name,
     }
     if cmd:
         container_config["Command"] = cmd
