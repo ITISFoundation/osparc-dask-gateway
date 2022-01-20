@@ -122,10 +122,19 @@ class OsparcBackend(DBBackendBase):
         self.log.debug("associated scheduler is %s", f"{dask_scheduler=}")
         dask_scheduler_name = dask_scheduler["Spec"]["Name"]
         worker_env = self.get_worker_env(worker.cluster)
+        dask_scheduler_url = f"tls://{dask_scheduler_name}:{_SCHEDULER_PORT}"
+        worker_cmd = self.get_worker_command(worker.cluster, worker.name)
+        try:
+            dask_worker_cmd_index = worker_cmd.index("dask-worker")
+            dask_scheduler_url = worker_cmd[dask_worker_cmd_index + 1]
+        except ValueError as exc:
+            raise PublicException(
+                f"Could not find TLS IP to connect to dask-scheduler in {worker_cmd=}"
+            ) from exc
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
         worker_env.update(
             {
-                "DASK_SCHEDULER_URL": f"tls://dask-gateway_{dask_scheduler_name}:{_SCHEDULER_PORT}",
+                "DASK_SCHEDULER_URL": dask_scheduler_url,
                 "DASK_WORKER_NAME": worker.name,
             }
         )
@@ -133,7 +142,7 @@ class OsparcBackend(DBBackendBase):
             self.docker_client,
             self.settings,
             self.log,
-            f"cluster_{worker.cluster.id}_sidecar_{worker.name}",
+            f"cluster_{worker.cluster.id}_sidecar_{worker.id}",
             worker_env,
             [c for c in self.cluster_secrets if c.cluster.name == worker.cluster.name],
             cmd=None,
