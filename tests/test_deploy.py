@@ -199,4 +199,8 @@ async def test_deployment(
     B = client.map(neg, A)
 
     total = client.submit(sum, B)
-    print("computation completed", total.result())
+    print("computation completed", total.result(timeout=120))
+
+    print("<-- scaling down...")
+    cluster.shutdown()
+    await asyncio.sleep(10)
