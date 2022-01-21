@@ -1,10 +1,13 @@
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
+
+
 import asyncio
 import json
 import socket
 import sys
 from copy import deepcopy
 from pathlib import Path
-from re import L
 from typing import AsyncIterator
 
 import aiohttp
@@ -35,6 +38,11 @@ def _get_this_computer_ip() -> str:
 async def aiohttp_client() -> AsyncIterator[aiohttp.ClientSession]:
     async with aiohttp.ClientSession() as session:
         yield session
+
+
+@pytest.fixture
+def minimal_config(monkeypatch):
+    monkeypatch.setenv("SC_BOOT_MODE", "production")
 
 
 ## current directory
@@ -82,8 +90,8 @@ def dask_gateway_password() -> str:
 
 @pytest.fixture
 async def dask_gateway_stack_deployed_services(
+    minimal_config,
     osparc_gateway_server_root_dir: Path,
-    loop: asyncio.AbstractEventLoop,
     docker_swarm,
     aiohttp_client: aiohttp.ClientSession,
     dask_gateway_entrypoint: str,
@@ -142,36 +150,54 @@ async def test_deployment(
         auth=dask_gateway.BasicAuth(faker.pystr(), dask_gateway_password),
     )
 
-    cluster = (
-        gateway.new_cluster()
-    )  # when returning we do have a new cluster (e.g. a new scheduler)
+    with gateway.new_cluster() as cluster:
+        _NUM_WORKERS = 2
+        cluster.scale(
+            _NUM_WORKERS
+        )  # when returning we are in the process of creating the workers
 
-    _NUM_WORKERS = 2
-    cluster.scale(
-        _NUM_WORKERS
-    )  # when returning we are in the process of creating the workers
+        # now wait until we get the workers
+        workers = None
+        async for attempt in AsyncRetrying(
+            reraise=True, wait=wait_fixed(1), stop=stop_after_delay(60)
+        ):
+            with attempt:
+                print(
+                    f"--> Waiting to have {_NUM_WORKERS} running,"
+                    f" attempt {attempt.retry_state.attempt_number}...",
+                )
+                assert "workers" in cluster.scheduler_info
+                assert len(cluster.scheduler_info["workers"]) == _NUM_WORKERS
+                workers = deepcopy(cluster.scheduler_info["workers"])
+                print(
+                    f"!-- {_NUM_WORKERS} are running,"
+                    f" [{json.dumps(attempt.retry_state.retry_object.statistics)}]",
+                )
 
-    # now wait until we get the workers
-    workers = None
-    async for attempt in AsyncRetrying(
-        reraise=True, wait=wait_fixed(1), stop=stop_after_delay(60)
-    ):
-        with attempt:
-            print(
-                f"--> Waiting to have {_NUM_WORKERS} running,"
-                f" attempt {attempt.retry_state.attempt_number}...",
-            )
-            assert "workers" in cluster.scheduler_info
-            assert len(cluster.scheduler_info["workers"]) == _NUM_WORKERS
-            workers = deepcopy(cluster.scheduler_info["workers"])
-            print(
-                f"!-- {_NUM_WORKERS} are running,"
-                f" [{json.dumps(attempt.retry_state.retry_object.statistics)}]",
-            )
+        # now check all this is stable
+        _SECONDS_STABLE = 6
+        for n in range(_SECONDS_STABLE):
+            # NOTE: the scheduler_info gets auto-udpated by the dask-gateway internals
+            assert workers == cluster.scheduler_info["workers"]
+            await asyncio.sleep(1)
+            print(f"!-- {_NUM_WORKERS} stable for {n} seconds")
 
-    # now check all this is stable
-    _SECONDS_STABLE = 6
-    for n in range(_SECONDS_STABLE):
-        # NOTE: the scheduler_info gets auto-udpated by the dask-gateway internals
-        assert workers == cluster.scheduler_info["workers"]
-        await asyncio.sleep(1)
+        # send some work
+        def square(x):
+            return x ** 2
+
+        def neg(x):
+            return -x
+
+        with cluster.get_client() as client:
+
+            square_of_2 = client.submit(square, 2)
+            assert square_of_2.result(timeout=10) == 4
+            assert not square_of_2.exception(timeout=10)
+
+            # now send some more stuff just for the fun
+            A = client.map(square, range(10))
+            B = client.map(neg, A)
+
+            total = client.submit(sum, B)
+            print("computation completed", total.result(timeout=120))

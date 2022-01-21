@@ -15,10 +15,7 @@ RUN  --mount=type=cache,id=basecache,target=/var/cache/apt,mode=0755,sharing=loc
   set -eux \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
-  iputils-ping \
-  curl \
   gosu \
-  procps \
   libffi-dev \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \

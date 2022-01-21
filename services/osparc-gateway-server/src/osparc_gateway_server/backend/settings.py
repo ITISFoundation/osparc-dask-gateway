@@ -1,21 +1,24 @@
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseSettings, Field
 
 
-class AppSettings(BaseSettings):
-    GATEWAY_WORKERS_NETWORK: str = Field(
-        ...,
-        description="The docker network where the gateway workers shall be able to access the gateway",
-    )
-    GATEWAY_SERVER_NAME: str = Field(
-        ...,
-        description="The hostname of the gateway server in the GATEWAY_WORKERS_NETWORK network",
-    )
+class BootModeEnum(str, Enum):
+    """
+    Values taken by SC_BOOT_MODE environment variable
+    set in Dockerfile and used during docker/boot.sh
+    """
 
-    COMPUTATIONAL_SIDECAR_VOLUME_NAME: str = Field(
-        ..., description="Named volume for the computational sidecars"
-    )
+    DEFAULT = "default"
+    LOCAL = "local-development"
+    DEBUG = "debug-ptvsd"
+    PRODUCTION = "production"
+    DEVELOPMENT = "development"
+
+
+class AppSettings(BaseSettings):
+
     COMPUTATIONAL_SIDECAR_IMAGE: str = Field(
         ..., description="The computational sidecar image in use"
     )
@@ -30,3 +33,17 @@ class AppSettings(BaseSettings):
             "SIDECAR_LOGLEVEL",
         ],
     )
+    COMPUTATIONAL_SIDECAR_VOLUME_NAME: str = Field(
+        ..., description="Named volume for the computational sidecars"
+    )
+
+    GATEWAY_WORKERS_NETWORK: str = Field(
+        ...,
+        description="The docker network where the gateway workers shall be able to access the gateway",
+    )
+    GATEWAY_SERVER_NAME: str = Field(
+        ...,
+        description="The hostname of the gateway server in the GATEWAY_WORKERS_NETWORK network",
+    )
+
+    SC_BOOT_MODE: Optional[BootModeEnum]

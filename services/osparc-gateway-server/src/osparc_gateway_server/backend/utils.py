@@ -67,6 +67,7 @@ def create_service_config(
     service_secrets: List[DockerSecret],
     cmd: Optional[List[str]],
     labels: Dict[str, str],
+    **service_kwargs,
 ) -> Dict[str, Any]:
     env = deepcopy(service_env)
     env.pop("PATH", None)
@@ -127,7 +128,7 @@ def create_service_config(
             "RestartPolicy": {"Condition": "on-failure"},
         },
         "networks": [network_id],
-        # "mode": {"Global": {}},
+        **service_kwargs,
     }
 
 
@@ -184,6 +185,7 @@ async def start_service(
     cmd: Optional[List[str]],
     labels: Dict[str, str],
     gateway_api_url: str,
+    **service_kwargs,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     service_parameters = {}
     try:
@@ -206,7 +208,14 @@ async def start_service(
             docker_client, settings.GATEWAY_WORKERS_NETWORK, logger
         )
         service_parameters = create_service_config(
-            settings, env, service_name, network_id, cluster_secrets, cmd, labels=labels
+            settings,
+            env,
+            service_name,
+            network_id,
+            cluster_secrets,
+            cmd,
+            labels=labels,
+            **service_kwargs,
         )
 
         # start service
