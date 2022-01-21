@@ -3,10 +3,11 @@ from typing import Any, AsyncGenerator, Dict, List, Union
 
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
+from dask_gateway_server._version import __version__
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
 from osparc_gateway_server.remote_debug import setup_remote_debugging
 
-from .settings import AppSettings
+from .settings import AppSettings, BootModeEnum
 from .utils import (
     OSPARC_SCHEDULER_API_PORT,
     DockerSecret,
@@ -17,6 +18,21 @@ from .utils import (
     modify_cmd_argument,
     start_service,
     stop_service,
+)
+
+#
+# https://patorjk.com/software/taag/#p=display&v=0&f=Avatar&t=osparc-dask-gateway-server
+#
+WELCOME_MSG = r"""
+ ____  ____  ____  ____  ____  ____       ____  ____  ____  _  __      _____ ____  _____  _____ _      ____ ___  _      ____  _____ ____  _     _____ ____
+/  _ \/ ___\/  __\/  _ \/  __\/   _\     /  _ \/  _ \/ ___\/ |/ /     /  __//  _ \/__ __\/  __// \  /|/  _ \\  \//     / ___\/  __//  __\/ \ |\/  __//  __\
+| / \||    \|  \/|| / \||  \/||  / _____ | | \|| / \||    \|   /_____ | |  _| / \|  / \  |  \  | |  ||| / \| \  /_____ |    \|  \  |  \/|| | //|  \  |  \/|
+| \_/|\___ ||  __/| |-|||    /|  \_\____\| |_/|| |-||\___ ||   \\____\| |_//| |-||  | |  |  /_ | |/\||| |-|| / / \____\\___ ||  /_ |    /| \// |  /_ |    /
+\____/\____/\_/   \_/ \|\_/\_\\____/     \____/\_/ \|\____/\_|\_\     \____\\_/ \|  \_/  \____\\_/  \|\_/ \|/_/        \____/\____\\_/\_\\__/  \____\\_/\_\ {0}
+
+
+""".format(
+    __version__
 )
 
 
@@ -33,12 +49,15 @@ class OsparcBackend(DBBackendBase):
 
     async def do_setup(self) -> None:
         self.settings = AppSettings()  # type: ignore
-        setup_remote_debugging(logger=self.log)
-        self.docker_client = Docker()
         self.log.info(
             "osparc-gateway-server application settings:\n%s",
             self.settings.json(indent=2),
         )
+        if self.settings.SC_BOOT_MODE in [BootModeEnum.DEBUG]:
+            setup_remote_debugging(logger=self.log)
+        self.docker_client = Docker()
+
+        print(WELCOME_MSG, flush=True)
 
     async def do_cleanup(self) -> None:
         await self.docker_client.close()
