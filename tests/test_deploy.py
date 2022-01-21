@@ -180,3 +180,23 @@ async def test_deployment(
         # NOTE: the scheduler_info gets auto-udpated by the dask-gateway internals
         assert workers == cluster.scheduler_info["workers"]
         await asyncio.sleep(1)
+
+    # send some work
+    def square(x):
+        return x ** 2
+
+    def neg(x):
+        return -x
+
+    client = cluster.get_client()
+
+    square_of_2 = client.submit(square, 2)
+    assert square_of_2.result(timeout=10) == 4
+    assert not square_of_2.exception(timeout=10)
+
+    # now send some more stuff just for the fun
+    A = client.map(square, range(10))
+    B = client.map(neg, A)
+
+    total = client.submit(sum, B)
+    print("computation completed", total.result())
