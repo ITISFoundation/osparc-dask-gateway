@@ -153,7 +153,7 @@ jobs:
 
   build-multi-platform:
     timeout-minutes: 30
-    needs: [unit-test, integration-test]
+    needs: [unit-test, integration-test, system-tests]
     strategy:
       matrix:
         python: [3.9]
