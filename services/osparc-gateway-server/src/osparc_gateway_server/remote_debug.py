@@ -3,8 +3,6 @@
 """
 import logging
 
-logger = logging.getLogger(__name__)
-
 
 def setup_remote_debugging(logger: logging.Logger):
     try:
