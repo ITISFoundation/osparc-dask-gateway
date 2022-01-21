@@ -7,7 +7,7 @@ from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
 
 from .settings import AppSettings
 from .utils import (
-    OSPARC_SCHEDULER_PORT,
+    OSPARC_SCHEDULER_API_PORT,
     DockerSecret,
     create_docker_secrets_from_tls_certs_for_cluster,
     delete_secrets,
@@ -100,7 +100,7 @@ class OsparcBackend(DBBackendBase):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("received call to start worker as %s", f"{worker=}")
         worker_env = self.get_worker_env(worker.cluster)
-        dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_PORT}"  #  worker.cluster.scheduler_address
+        dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_API_PORT}"  #  worker.cluster.scheduler_address
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
         worker_env.update(
             {
