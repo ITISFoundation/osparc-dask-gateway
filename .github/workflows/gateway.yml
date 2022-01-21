@@ -71,7 +71,7 @@ jobs:
         with:
           flags: unittests #optional
   integration-test:
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       matrix:
         python: [3.9]
