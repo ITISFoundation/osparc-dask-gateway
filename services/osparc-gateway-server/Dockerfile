@@ -16,7 +16,7 @@ RUN  --mount=type=cache,id=basecache,target=/var/cache/apt,mode=0755,sharing=loc
   && apt-get update \
   && apt-get install -y --no-install-recommends \
   gosu \
-  libffi6 \
+  libffi-dev \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
   # verify that the binary works
