@@ -25,4 +25,5 @@ tests: _check_venv_active ## runs all tests [DEV]
 		-vv \
 		--color=yes \
 		--durations=10 \
+		--asyncio-mode=auto \
 		$(CURDIR)
