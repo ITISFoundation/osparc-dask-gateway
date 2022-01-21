@@ -85,8 +85,8 @@ class OsparcBackend(DBBackendBase):
         modifications = get_osparc_scheduler_cmd_modifications(scheduler_service_name)
         for key, value in modifications.items():
             scheduler_cmd = modify_cmd_argument(scheduler_cmd, key, value)
-
-        async for dask_scheduler_start_result in start_service(
+        # start the scheduler
+        return start_service(
             self.docker_client,
             self.settings,
             self.log,
@@ -98,13 +98,14 @@ class OsparcBackend(DBBackendBase):
             cmd=scheduler_cmd,
             labels={"cluster_id": f"{cluster.id}"},
             gateway_api_url=self.api_url,
-        ):
-            yield dask_scheduler_start_result
+        )
 
     async def do_stop_cluster(self, cluster: Cluster):
+        self.log.debug("<-- stopping cluster %s", f"{cluster=}")
         dask_scheduler_service_id = cluster.state.get("service_id")
         await stop_service(self.docker_client, dask_scheduler_service_id, self.log)
         await delete_secrets(self.docker_client, cluster)
+        self.log.debug("cluster %s stopped", f"{cluster=}")
 
     async def do_check_clusters(self, clusters: List[Cluster]):
         self.log.debug("--> checking clusters statuses: %s", f"{clusters=}")
@@ -117,7 +118,7 @@ class OsparcBackend(DBBackendBase):
     async def do_start_worker(
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        self.log.debug("received call to start worker as %s", f"{worker=}")
+        self.log.debug("--> starting worker %s", f"{worker=}")
         worker_env = self.get_worker_env(worker.cluster)
         dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_API_PORT}"  #  worker.cluster.scheduler_address
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
@@ -127,7 +128,7 @@ class OsparcBackend(DBBackendBase):
                 "DASK_WORKER_NAME": worker.name,
             }
         )
-        async for dask_sidecar_start_result in start_service(
+        return start_service(
             self.docker_client,
             self.settings,
             self.log,
@@ -137,8 +138,7 @@ class OsparcBackend(DBBackendBase):
             cmd=None,
             labels={"cluster_id": f"{worker.cluster.id}", "worker_id": f"{worker.id}"},
             gateway_api_url=self.api_url,
-        ):
-            yield dask_sidecar_start_result
+        )
 
     async def do_stop_worker(self, worker: Worker) -> None:
         self.log.debug("Calling to stop worker %s", f"{worker=}")
