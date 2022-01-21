@@ -23,11 +23,9 @@ from .utils import (
 class OsparcBackend(DBBackendBase):
     """A cluster backend that launches osparc workers.
 
+    Scheduler are spawned as services in a docker swarm
     Workers are spawned as services in a docker swarm
     """
-
-    default_host = "0.0.0.0"
-    # worker_start_timeout = 120
 
     settings: AppSettings
     docker_client: Docker
