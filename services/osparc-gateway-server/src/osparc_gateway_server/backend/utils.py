@@ -322,3 +322,16 @@ def modify_cmd_argument(
     except ValueError:
         modified_cmd.extend([argument_name, argument_value])
     return modified_cmd
+
+
+async def get_cluster_information(docker_client: Docker):
+    list_of_nodes = await docker_client.nodes.list()
+    cluster_information = {
+        node["Description"]["Hostname"]: {
+            "docker_node_id": node["ID"],
+            "ip": node["Status"]["Addr"],
+            "resources": node["Description"]["Resources"],
+        }
+        for node in list_of_nodes
+    }
+    return cluster_information

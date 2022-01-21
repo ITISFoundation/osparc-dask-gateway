@@ -86,7 +86,7 @@ class OsparcBackend(DBBackendBase):
         for key, value in modifications.items():
             scheduler_cmd = modify_cmd_argument(scheduler_cmd, key, value)
         # start the scheduler
-        return start_service(
+        async for dask_scheduler_start_result in start_service(
             self.docker_client,
             self.settings,
             self.log,
@@ -98,7 +98,8 @@ class OsparcBackend(DBBackendBase):
             cmd=scheduler_cmd,
             labels={"cluster_id": f"{cluster.id}"},
             gateway_api_url=self.api_url,
-        )
+        ):
+            yield dask_scheduler_start_result
 
     async def do_stop_cluster(self, cluster: Cluster):
         self.log.debug("<-- stopping cluster %s", f"{cluster=}")
@@ -119,6 +120,10 @@ class OsparcBackend(DBBackendBase):
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("--> starting worker %s", f"{worker=}")
+
+        # list_nodes = await self.docker_client.nodes.list()
+        # self.log.debug("available nodes: %s", f"{list_nodes=}")
+
         worker_env = self.get_worker_env(worker.cluster)
         dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_API_PORT}"  #  worker.cluster.scheduler_address
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
@@ -128,7 +133,7 @@ class OsparcBackend(DBBackendBase):
                 "DASK_WORKER_NAME": worker.name,
             }
         )
-        return start_service(
+        async for dask_sidecar_start_result in start_service(
             self.docker_client,
             self.settings,
             self.log,
@@ -138,7 +143,8 @@ class OsparcBackend(DBBackendBase):
             cmd=None,
             labels={"cluster_id": f"{worker.cluster.id}", "worker_id": f"{worker.id}"},
             gateway_api_url=self.api_url,
-        )
+        ):
+            yield dask_sidecar_start_result
 
     async def do_stop_worker(self, worker: Worker) -> None:
         self.log.debug("Calling to stop worker %s", f"{worker=}")

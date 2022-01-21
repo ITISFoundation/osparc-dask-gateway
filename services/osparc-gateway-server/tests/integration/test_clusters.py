@@ -25,7 +25,6 @@ from tenacity.wait import wait_fixed
     ]
 )
 def minimal_config(
-    loop: asyncio.AbstractEventLoop,
     docker_swarm,
     monkeypatch: MonkeyPatch,
     faker: Faker,

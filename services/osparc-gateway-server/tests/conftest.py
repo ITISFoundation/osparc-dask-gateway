@@ -65,9 +65,7 @@ def pylintrc(osparc_gateway_server_root_dir: Path) -> Path:
 
 
 @pytest.fixture
-async def async_docker_client(
-    loop: asyncio.AbstractEventLoop,
-) -> AsyncIterator[aiodocker.Docker]:
+async def async_docker_client() -> AsyncIterator[aiodocker.Docker]:
     async with aiodocker.Docker() as docker_client:
         yield docker_client
 

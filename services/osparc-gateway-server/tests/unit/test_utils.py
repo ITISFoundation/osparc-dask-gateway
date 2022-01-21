@@ -17,6 +17,7 @@ from osparc_gateway_server.backend.utils import (
     create_or_update_secret,
     create_service_config,
     delete_secrets,
+    get_cluster_information,
     get_network_id,
     is_service_task_running,
 )
@@ -313,3 +314,11 @@ async def test_create_or_update_docker_secrets(
         filters={"label": f"cluster_id={fake_cluster.id}"}
     )
     assert len(secrets) == 0
+
+
+async def test_get_cluster_information(
+    docker_swarm,
+    async_docker_client: aiodocker.Docker,
+):
+    cluster_information = await get_cluster_information(async_docker_client)
+    assert cluster_information
