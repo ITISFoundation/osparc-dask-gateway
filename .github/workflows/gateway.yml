@@ -71,7 +71,7 @@ jobs:
         with:
           flags: unittests #optional
   integration-test:
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       matrix:
         python: [3.9]
@@ -110,7 +110,48 @@ jobs:
         with:
           flags: integrationtests #optional
 
-  build:
+  system-tests:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python: [3.9]
+        os: [ubuntu-20.04]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: show system version
+        run: ./ci/helpers/show_system_versions.bash
+      - uses: actions/cache@v2
+        name: getting cached data
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-osparc-gateway-server-${{ hashFiles('tests/requirements/ci.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-osparc-gateway-server-
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: build osparc-dask-gateway-server
+        run: |
+          make build && \
+          make info-images
+      - name: install
+        run: |
+          make devenv && \
+          source .venv/bin/activate && \
+          pushd tests && \
+          make install-ci
+      - name: test
+        run: |
+          source .venv/bin/activate && \
+          pushd tests && \
+          make tests
+
+  build-multi-platform:
     timeout-minutes: 30
     needs: [unit-test, integration-test]
     strategy:

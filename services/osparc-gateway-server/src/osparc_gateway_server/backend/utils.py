@@ -3,7 +3,7 @@ import json
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, NamedTuple, Optional
+from typing import Any, AsyncGenerator, Dict, Final, List, NamedTuple, Optional
 
 import aiodocker
 from aiodocker import Docker
@@ -115,6 +115,7 @@ def create_service_config(
         "Init": True,
         "Mounts": mounts,
         "Secrets": container_secrets,
+        "Hostname": service_name,
     }
     if cmd:
         container_config["Command"] = cmd
@@ -283,3 +284,32 @@ async def create_docker_secrets_from_tls_certs_for_cluster(
             secret_data=cluster.tls_key.decode(),
         ),
     ]
+
+
+OSPARC_SCHEDULER_API_PORT: Final[int] = 8786
+OSPARC_SCHEDULER_DASHBOARD_PORT: Final[int] = 8787
+
+
+def get_osparc_scheduler_cmd_modifications(
+    scheduler_service_name: str,
+) -> Dict[str, str]:
+    # NOTE: the healthcheck of itisfoundation/dask-sidecar expects the dashboard
+    # to be on port 8787
+    # (see https://github.com/ITISFoundation/osparc-simcore/blob/f3d98dccdae665d23701b0db4ee917364a0fbd99/services/dask-sidecar/Dockerfile)
+    return {
+        "--dashboard-address": f":{OSPARC_SCHEDULER_DASHBOARD_PORT}",
+        "--port": f"{OSPARC_SCHEDULER_API_PORT}",
+        "--host": scheduler_service_name,
+    }
+
+
+def modify_cmd_argument(
+    cmd: List[str], argument_name: str, argument_value: str
+) -> List[str]:
+    modified_cmd = deepcopy(cmd)
+    try:
+        dashboard_address_arg_index = modified_cmd.index(argument_name)
+        modified_cmd[dashboard_address_arg_index + 1] = argument_value
+    except ValueError:
+        modified_cmd.extend([argument_name, argument_value])
+    return modified_cmd
