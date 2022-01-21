@@ -287,6 +287,7 @@ async def create_docker_secrets_from_tls_certs_for_cluster(
 
 
 OSPARC_SCHEDULER_PORT: Final[int] = 8786
+OSPARC_SCHEDULER_DASHBOARD_PORT: Final[int] = 8787
 
 
 def get_osparc_scheduler_cmd_modifications(
@@ -296,7 +297,7 @@ def get_osparc_scheduler_cmd_modifications(
     # to be on port 8787
     # (see https://github.com/ITISFoundation/osparc-simcore/blob/f3d98dccdae665d23701b0db4ee917364a0fbd99/services/dask-sidecar/Dockerfile)
     return {
-        "--dashboard-address": ":8787",
+        "--dashboard-address": f":{OSPARC_SCHEDULER_DASHBOARD_PORT}",
         "--port": f"{OSPARC_SCHEDULER_PORT}",
         "--host": scheduler_service_name,
     }

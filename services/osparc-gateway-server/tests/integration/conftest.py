@@ -17,7 +17,10 @@ from _host_helpers import get_this_computer_ip
 from dask_gateway_server.app import DaskGateway
 from faker import Faker
 from osparc_gateway_server.backend.osparc import OsparcBackend
-from osparc_gateway_server.backend.utils import OSPARC_SCHEDULER_PORT
+from osparc_gateway_server.backend.utils import (
+    OSPARC_SCHEDULER_DASHBOARD_PORT,
+    OSPARC_SCHEDULER_PORT,
+)
 from tenacity._asyncio import AsyncRetrying
 from tenacity.wait import wait_fixed
 
@@ -83,7 +86,7 @@ def mock_scheduler_cmd_modifications(mocker):
         "osparc_gateway_server.backend.osparc.get_osparc_scheduler_cmd_modifications",
         autospec=True,
         return_value={
-            "--dashboard-address": ":8787",
+            "--dashboard-address": f":{OSPARC_SCHEDULER_DASHBOARD_PORT}",
             "--port": f"{OSPARC_SCHEDULER_PORT}",
         },
     )
