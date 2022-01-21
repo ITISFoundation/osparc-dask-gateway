@@ -1,6 +1,8 @@
 version: '3.6' # Don't touch
 services:
   osparc-gateway-server:
+    environment:
+      - SC_BOOT_MODE=${SC_BOOT_MODE:-default}
     ports:
       - "8000:8000"
       - "3100:3000" # ptvsd port
