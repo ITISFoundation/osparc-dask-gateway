@@ -4,7 +4,6 @@ import socket
 import sys
 from copy import deepcopy
 from pathlib import Path
-from re import L
 from typing import AsyncIterator
 
 import aiohttp
@@ -35,6 +34,11 @@ def _get_this_computer_ip() -> str:
 async def aiohttp_client() -> AsyncIterator[aiohttp.ClientSession]:
     async with aiohttp.ClientSession() as session:
         yield session
+
+
+@pytest.fixture
+def minimal_config(monkeypatch):
+    monkeypatch.setenv("SC_BOOT_MODE", "production")
 
 
 ## current directory
@@ -82,8 +86,9 @@ def dask_gateway_password() -> str:
 
 @pytest.fixture
 async def dask_gateway_stack_deployed_services(
+    minimal_config,
     osparc_gateway_server_root_dir: Path,
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     docker_swarm,
     aiohttp_client: aiohttp.ClientSession,
     dask_gateway_entrypoint: str,
