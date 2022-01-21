@@ -6,6 +6,7 @@ from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server._version import __version__
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
 from osparc_gateway_server.remote_debug import setup_remote_debugging
+from packaging.version import Version
 
 from .settings import AppSettings, BootModeEnum
 from .utils import (
@@ -32,7 +33,7 @@ WELCOME_MSG = r"""
 
 
 """.format(
-    __version__
+    Version
 )
 
 
