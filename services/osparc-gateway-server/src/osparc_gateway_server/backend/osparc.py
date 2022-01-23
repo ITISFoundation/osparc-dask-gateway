@@ -14,6 +14,7 @@ from .utils import (
     DockerSecret,
     create_docker_secrets_from_tls_certs_for_cluster,
     delete_secrets,
+    get_cluster_information,
     get_osparc_scheduler_cmd_modifications,
     is_service_task_running,
     modify_cmd_argument,
@@ -96,7 +97,7 @@ class OsparcBackend(DBBackendBase):
                 c for c in self.cluster_secrets if c.cluster.name == cluster.name
             ],
             cmd=scheduler_cmd,
-            labels={"cluster_id": f"{cluster.id}"},
+            labels={"cluster_id": f"{cluster.id}", "type": "scheduler"},
             gateway_api_url=self.api_url,
         ):
             yield dask_scheduler_start_result
@@ -121,8 +122,8 @@ class OsparcBackend(DBBackendBase):
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("--> starting worker %s", f"{worker=}")
 
-        # list_nodes = await self.docker_client.nodes.list()
-        # self.log.debug("available nodes: %s", f"{list_nodes=}")
+        cluster_information = await get_cluster_information(self.docker_client)
+        # now find a node with no workers on it
 
         worker_env = self.get_worker_env(worker.cluster)
         dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_API_PORT}"  #  worker.cluster.scheduler_address
@@ -141,7 +142,11 @@ class OsparcBackend(DBBackendBase):
             worker_env,
             [c for c in self.cluster_secrets if c.cluster.name == worker.cluster.name],
             cmd=None,
-            labels={"cluster_id": f"{worker.cluster.id}", "worker_id": f"{worker.id}"},
+            labels={
+                "cluster_id": f"{worker.cluster.id}",
+                "worker_id": f"{worker.id}",
+                "type": "worker",
+            },
             gateway_api_url=self.api_url,
         ):
             yield dask_sidecar_start_result

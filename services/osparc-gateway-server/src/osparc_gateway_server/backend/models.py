@@ -55,6 +55,9 @@ class DictModel(GenericModel, Generic[DictKey, DictValue]):
     def values(self) -> ValuesView[DictValue]:
         return self.__root__.values()
 
+    def pop(self, key: DictKey):
+        return self.__root__.pop(key)
+
     def __iter__(self) -> Iterator[DictKey]:
         return self.__root__.__iter__()
 

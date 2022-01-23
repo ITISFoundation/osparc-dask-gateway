@@ -1,6 +1,7 @@
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
 
+import socket
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict
@@ -18,6 +19,7 @@ from osparc_gateway_server.backend.utils import (
     create_service_config,
     delete_secrets,
     get_cluster_information,
+    get_empty_node_hostname,
     get_network_id,
     is_service_task_running,
 )
@@ -325,3 +327,11 @@ async def test_get_cluster_information(
 
     # in testing we do have 1 machine, that is... this very host
     assert len(cluster_information) == 1
+    assert socket.gethostname() in cluster_information
+
+
+async def test_get_empty_node_hostname(
+    docker_swarm, async_docker_client: aiodocker.Docker, fake_cluster: Cluster
+):
+    hostname = await get_empty_node_hostname(async_docker_client, fake_cluster)
+    assert socket.gethostname() == hostname

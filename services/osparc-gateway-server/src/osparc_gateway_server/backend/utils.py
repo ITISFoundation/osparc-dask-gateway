@@ -10,7 +10,7 @@ from aiodocker import Docker
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase
 from yarl import URL
 
-from .models import ClusterInformation
+from .models import ClusterInformation, Hostname
 from .settings import AppSettings
 
 _SHARED_COMPUTATIONAL_FOLDER_IN_SIDECAR = "/home/scu/shared_computational_data"
@@ -331,3 +331,13 @@ async def get_cluster_information(docker_client: Docker) -> ClusterInformation:
     )
 
     return cluster_information
+
+
+async def get_empty_node_hostname(docker_client: Docker, cluster: Cluster) -> Hostname:
+    cluster_information = await get_cluster_information(docker_client)
+    current_worker_services = await docker_client.services.list(
+        filters={"label": "type=worker", "label": f"cluster_id={cluster.id}"}
+    )
+    for service in current_worker_services:
+        cluster_information.pop(service["Hostname"])
+    return next(iter(cluster_information))
