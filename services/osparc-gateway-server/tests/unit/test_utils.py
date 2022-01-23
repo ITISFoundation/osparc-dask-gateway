@@ -322,3 +322,6 @@ async def test_get_cluster_information(
 ):
     cluster_information = await get_cluster_information(async_docker_client)
     assert cluster_information
+
+    # in testing we do have 1 machine, that is... this very host
+    assert len(cluster_information) == 1

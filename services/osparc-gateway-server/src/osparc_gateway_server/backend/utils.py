@@ -10,6 +10,7 @@ from aiodocker import Docker
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase
 from yarl import URL
 
+from .models import ClusterInformation
 from .settings import AppSettings
 
 _SHARED_COMPUTATIONAL_FOLDER_IN_SIDECAR = "/home/scu/shared_computational_data"
@@ -324,14 +325,9 @@ def modify_cmd_argument(
     return modified_cmd
 
 
-async def get_cluster_information(docker_client: Docker):
-    list_of_nodes = await docker_client.nodes.list()
-    cluster_information = {
-        node["Description"]["Hostname"]: {
-            "docker_node_id": node["ID"],
-            "ip": node["Status"]["Addr"],
-            "resources": node["Description"]["Resources"],
-        }
-        for node in list_of_nodes
-    }
+async def get_cluster_information(docker_client: Docker) -> ClusterInformation:
+    cluster_information = ClusterInformation.from_docker(
+        await docker_client.nodes.list()
+    )
+
     return cluster_information
