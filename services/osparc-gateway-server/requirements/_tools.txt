@@ -19,7 +19,7 @@ distlib==0.3.4
     # via virtualenv
 filelock==3.4.2
     # via virtualenv
-identify==2.4.4
+identify==2.4.5
     # via pre-commit
 isort==5.10.1
     # via
@@ -71,7 +71,9 @@ typing-extensions==4.0.1
 virtualenv==20.13.0
     # via pre-commit
 watchdog==2.1.6
-    # via -r requirements/_tools.in
+    # via
+    #   -c requirements/_test.txt
+    #   -r requirements/_tools.in
 wheel==0.37.1
     # via pip-tools
 

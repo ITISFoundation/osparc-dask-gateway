@@ -16,6 +16,7 @@ pytest-cov
 pytest-mock
 pytest-xdist
 pytest-icdiff
+pytest-watch
 
 # fixtures
 dask-gateway
