@@ -146,7 +146,10 @@ async def test_clusters_start_stop(
         # now we should have a dask_scheduler happily running in the host
         assert len(list_services) == 1
         assert list_services[0]["Spec"]["Name"] == "cluster_1_scheduler"
-        assert list_services[0]["Spec"]["Labels"] == {"cluster_id": "1"}
+        assert list_services[0]["Spec"]["Labels"] == {
+            "cluster_id": "1",
+            "type": "scheduler",
+        }
         # there should be one service and a stable one
         await assert_services_stability(async_docker_client, "cluster_1_scheduler")
 
@@ -168,8 +171,8 @@ async def test_clusters_start_stop(
                     "cluster_2_scheduler",
                 ]
                 assert s["Spec"]["Labels"] in [
-                    {"cluster_id": "1"},
-                    {"cluster_id": "2"},
+                    {"cluster_id": "1", "type": "scheduler"},
+                    {"cluster_id": "2", "type": "scheduler"},
                 ]
             # the new scheduler should be as stable as a rock!
             await assert_services_stability(async_docker_client, "cluster_2_scheduler")
@@ -178,7 +181,10 @@ async def test_clusters_start_stop(
             async_docker_client, num_services=1, num_secrets=2
         )
         assert list_services[0]["Spec"]["Name"] == "cluster_1_scheduler"
-        assert list_services[0]["Spec"]["Labels"] == {"cluster_id": "1"}
+        assert list_services[0]["Spec"]["Labels"] == {
+            "cluster_id": "1",
+            "type": "scheduler",
+        }
     # now both clusters are gone
     clusters = await gateway_client.list_clusters()
     assert not clusters
