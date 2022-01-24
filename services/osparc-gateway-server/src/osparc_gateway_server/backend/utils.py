@@ -10,6 +10,7 @@ from aiodocker import Docker
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase
 from yarl import URL
 
+from .errors import NoHostFoundError, NoServiceTasksError, TaskNotAssignedError
 from .models import ClusterInformation, Hostname
 from .settings import AppSettings
 
@@ -334,10 +335,31 @@ async def get_cluster_information(docker_client: Docker) -> ClusterInformation:
 
 
 async def get_empty_node_hostname(docker_client: Docker, cluster: Cluster) -> Hostname:
-    cluster_information = await get_cluster_information(docker_client)
+    cluster_nodes = await docker_client.nodes.list()
     current_worker_services = await docker_client.services.list(
-        filters={"label": "type=worker", "label": f"cluster_id={cluster.id}"}
+        filters={"label": [f"cluster_id={cluster.id}", "type=worker"]}
     )
+    used_docker_node_ids = set()
+
     for service in current_worker_services:
-        cluster_information.pop(service["Hostname"])
-    return next(iter(cluster_information))
+        service_tasks = await docker_client.tasks.list(
+            filters={"service": service["ID"]}
+        )
+        if not service_tasks:
+            raise NoServiceTasksError(f"service {service} has no tasks attached")
+        for task in service_tasks:
+            if task["Status"]["State"] in ("new", "pending"):
+                raise TaskNotAssignedError(f"task {task} is not assigned to a host yet")
+            if task["Status"]["State"] in (
+                "assigned",
+                "preparing",
+                "starting",
+                "running",
+            ):
+                used_docker_node_ids.add(task["NodeID"])
+
+    for node in cluster_nodes:
+        if node["ID"] in used_docker_node_ids:
+            continue
+        return node["Description"]["Hostname"]
+    raise NoHostFoundError("Could not find any empty host")

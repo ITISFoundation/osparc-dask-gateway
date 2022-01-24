@@ -14,7 +14,6 @@ from .utils import (
     DockerSecret,
     create_docker_secrets_from_tls_certs_for_cluster,
     delete_secrets,
-    get_cluster_information,
     get_osparc_scheduler_cmd_modifications,
     is_service_task_running,
     modify_cmd_argument,
@@ -121,9 +120,6 @@ class OsparcBackend(DBBackendBase):
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("--> starting worker %s", f"{worker=}")
-
-        cluster_information = await get_cluster_information(self.docker_client)
-        # now find a node with no workers on it
 
         worker_env = self.get_worker_env(worker.cluster)
         dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_API_PORT}"  #  worker.cluster.scheduler_address
