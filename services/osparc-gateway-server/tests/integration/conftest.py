@@ -107,7 +107,6 @@ async def local_dask_gateway_server(
     c.Proxy.address = f"{get_this_computer_ip()}:0"  # type: ignore
     c.DaskGateway.authenticator_class = "dask_gateway_server.auth.SimpleAuthenticator"  # type: ignore
     c.SimpleAuthenticator.password = gateway_password  # type: ignore
-    # c.OsparcBackend.api_url = get_this_computer_ip()
     print(f"--> local dask gateway config: {json.dumps(_convert_to_dict(c), indent=2)}")
     dask_gateway_server = DaskGateway(config=c)
     dask_gateway_server.initialize([])  # that is a shitty one!
@@ -121,7 +120,7 @@ async def local_dask_gateway_server(
         c.SimpleAuthenticator.password,  # type: ignore
         dask_gateway_server,
     )
-    print("--> local dask gateway server switching off...")
+    print("<-- local dask gateway server switching off...")
     await dask_gateway_server.cleanup()
     print("...done")
 
