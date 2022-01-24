@@ -43,6 +43,7 @@ async def aiohttp_client() -> AsyncIterator[aiohttp.ClientSession]:
 @pytest.fixture
 def minimal_config(monkeypatch):
     monkeypatch.setenv("SC_BOOT_MODE", "production")
+    monkeypatch.setenv("GATEWAY_SERVER_ONE_WORKER_PER_NODE", "False")
 
 
 ## current directory
