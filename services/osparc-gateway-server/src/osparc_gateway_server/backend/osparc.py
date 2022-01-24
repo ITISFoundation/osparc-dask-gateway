@@ -4,7 +4,16 @@ from typing import Any, AsyncGenerator, Dict, List, Union
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server._version import __version__
-from dask_gateway_server.backends.db_base import Cluster, DBBackendBase, Worker
+from dask_gateway_server.backends.base import ClusterConfig
+from dask_gateway_server.backends.db_base import (
+    Cluster,
+    DBBackendBase,
+    JobStatus,
+    Worker,
+    chain,
+    islice,
+    timestamp,
+)
 from osparc_gateway_server.remote_debug import setup_remote_debugging
 from packaging.version import Version
 
@@ -14,6 +23,7 @@ from .utils import (
     DockerSecret,
     create_docker_secrets_from_tls_certs_for_cluster,
     delete_secrets,
+    get_cluster_information,
     get_osparc_scheduler_cmd_modifications,
     is_service_task_running,
     modify_cmd_argument,
@@ -86,6 +96,7 @@ class OsparcBackend(DBBackendBase):
         for key, value in modifications.items():
             scheduler_cmd = modify_cmd_argument(scheduler_cmd, key, value)
         # start the scheduler
+        # asyncio.create_task(_background_task(self, cluster))
         async for dask_scheduler_start_result in start_service(
             self.docker_client,
             self.settings,
@@ -189,3 +200,128 @@ class OsparcBackend(DBBackendBase):
         )
         self.log.debug("<-- worker status returned: %s", f"{ok=}")
         return ok
+
+    async def on_cluster_heartbeat(self, cluster_name, msg):
+        # HACK: we override the base class heartbeat in order to
+        # dynamically allow for more or less workers depending on the
+        # available docker nodes!!!
+        cluster = self.db.get_cluster(cluster_name)
+        if cluster is None or cluster.target > JobStatus.RUNNING:
+            return
+
+        cluster.last_heartbeat = timestamp()
+
+        if cluster.status == JobStatus.RUNNING:
+            cluster_update = {}
+        else:
+            cluster_update = {
+                "api_address": msg["api_address"],
+                "scheduler_address": msg["scheduler_address"],
+                "dashboard_address": msg["dashboard_address"],
+            }
+
+        count = msg["count"]
+        active_workers = set(msg["active_workers"])
+        closing_workers = set(msg["closing_workers"])
+        closed_workers = set(msg["closed_workers"])
+
+        self.log.info(
+            "Cluster %s heartbeat [count: %d, n_active: %d, n_closing: %d, n_closed: %d]",
+            cluster_name,
+            count,
+            len(active_workers),
+            len(closing_workers),
+            len(closed_workers),
+        )
+
+        # THIS IS THE HACK!!!
+        # original code in dask_gateway_server.backend.db_base
+        max_workers = cluster.config.get("cluster_max_workers")
+        # cluster_max_workers = len(await get_cluster_information(self.docker_client))
+        # if max_workers != cluster_max_workers:
+        #     unfrozen_cluster_config = {k: v for k, v in cluster.config.items()}
+        #     unfrozen_cluster_config["cluster_max_workers"] = cluster_max_workers
+        #     cluster_update["config"] = unfrozen_cluster_config
+        max_workers = len(await get_cluster_information(self.docker_client))
+        if max_workers is not None and count > max_workers:
+            # This shouldn't happen under normal operation, but could if the
+            # user does something malicious (or there's a bug).
+            self.log.info(
+                "Cluster %s heartbeat requested %d workers, exceeding limit of %s.",
+                cluster_name,
+                count,
+                max_workers,
+            )
+            count = max_workers
+
+        if count != cluster.count:
+            cluster_update["count"] = count
+
+        created_workers = []
+        submitted_workers = []
+        target_updates = []
+        newly_running = []
+        close_expected = []
+        for worker in cluster.workers.values():
+            if worker.status >= JobStatus.STOPPED:
+                continue
+            elif worker.name in closing_workers:
+                if worker.status < JobStatus.RUNNING:
+                    newly_running.append(worker)
+                close_expected.append(worker)
+            elif worker.name in active_workers:
+                if worker.status < JobStatus.RUNNING:
+                    newly_running.append(worker)
+            elif worker.name in closed_workers:
+                target = (
+                    JobStatus.STOPPED if worker.close_expected else JobStatus.FAILED
+                )
+                target_updates.append((worker, {"target": target}))
+            else:
+                if worker.status == JobStatus.SUBMITTED:
+                    submitted_workers.append(worker)
+                else:
+                    assert worker.status == JobStatus.CREATED
+                    created_workers.append(worker)
+
+        n_pending = len(created_workers) + len(submitted_workers)
+        n_to_stop = len(active_workers) + n_pending - count
+        if n_to_stop > 0:
+            for w in islice(chain(created_workers, submitted_workers), n_to_stop):
+                target_updates.append((w, {"target": JobStatus.STOPPED}))
+
+        if cluster_update:
+            self.db.update_cluster(cluster, **cluster_update)
+            self.queue.put(cluster)
+
+        self.db.update_workers(target_updates)
+        for w, u in target_updates:
+            self.queue.put(w)
+
+        if newly_running:
+            # At least one worker successfully started, reset failure count
+            cluster.worker_start_failure_count = 0
+            self.db.update_workers(
+                [(w, {"status": JobStatus.RUNNING}) for w in newly_running]
+            )
+            for w in newly_running:
+                self.log.info("Worker %s is running", w.name)
+
+        self.db.update_workers([(w, {"close_expected": True}) for w in close_expected])
+
+
+async def _background_task(backend: OsparcBackend, cluster: Cluster):
+    backend.log.info("%s", f"{cluster.options=}")
+    while await asyncio.sleep(2, result=True):
+        backend.log.debug("osparc bck task: getting cluster information")
+        cluster_info = await get_cluster_information(backend.docker_client)
+        backend.log.debug("osparc bck task: %s", f"{cluster_info.json(indent=2)}")
+        backend.config.ClusterConfig.cluster_max_workers = len(cluster_info)
+        # backend.log.debug(
+        #     "%s", f"{backend.db.get_cluster(cluster.name).config.cluster_max_workers=}"
+        # )
+        # cluster.config.cluster_max_workers = len(cluster_info)
+        unfrozen_cluster_config = {k: v for k, v in cluster.config.items()}
+        unfrozen_cluster_config["cluster_max_workers"] = len(cluster_info)
+        backend.db.update_cluster(cluster, config=unfrozen_cluster_config)
+        # cluster.config.cluster_max_workers = len(cluster_info)
