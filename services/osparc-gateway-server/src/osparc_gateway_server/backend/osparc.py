@@ -109,7 +109,6 @@ class OsparcBackend(DBBackendBase):
             cmd=scheduler_cmd,
             labels={"cluster_id": f"{cluster.id}", "type": "scheduler"},
             gateway_api_url=self.api_url,
-            placement={},
         ):
             yield dask_scheduler_start_result
 
@@ -246,12 +245,13 @@ class OsparcBackend(DBBackendBase):
         # THIS IS THE HACK!!!
         # original code in dask_gateway_server.backend.db_base
         max_workers = cluster.config.get("cluster_max_workers")
-        # cluster_max_workers = len(await get_cluster_information(self.docker_client))
-        # if max_workers != cluster_max_workers:
-        #     unfrozen_cluster_config = {k: v for k, v in cluster.config.items()}
-        #     unfrozen_cluster_config["cluster_max_workers"] = cluster_max_workers
-        #     cluster_update["config"] = unfrozen_cluster_config
-        max_workers = len(await get_cluster_information(self.docker_client))
+        if self.settings.GATEWAY_SERVER_ONE_WORKER_PER_NODE:
+            # cluster_max_workers = len(await get_cluster_information(self.docker_client))
+            # if max_workers != cluster_max_workers:
+            #     unfrozen_cluster_config = {k: v for k, v in cluster.config.items()}
+            #     unfrozen_cluster_config["cluster_max_workers"] = cluster_max_workers
+            #     cluster_update["config"] = unfrozen_cluster_config
+            max_workers = len(await get_cluster_information(self.docker_client))
         if max_workers is not None and count > max_workers:
             # This shouldn't happen under normal operation, but could if the
             # user does something malicious (or there's a bug).

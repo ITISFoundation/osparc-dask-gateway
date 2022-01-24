@@ -69,7 +69,7 @@ def create_service_config(
     service_secrets: List[DockerSecret],
     cmd: Optional[List[str]],
     labels: Dict[str, str],
-    placement: Dict[str, Any],
+    placement: Optional[Dict[str, Any]],
     **service_kwargs,
 ) -> Dict[str, Any]:
     env = deepcopy(service_env)
@@ -113,24 +113,27 @@ def create_service_config(
         },
     ]
 
-    container_config = {
-        "Env": env,
-        "Image": settings.COMPUTATIONAL_SIDECAR_IMAGE,
-        "Init": True,
-        "Mounts": mounts,
-        "Secrets": container_secrets,
-        "Hostname": service_name,
+    task_template = {
+        "ContainerSpec": {
+            "Env": env,
+            "Image": settings.COMPUTATIONAL_SIDECAR_IMAGE,
+            "Init": True,
+            "Mounts": mounts,
+            "Secrets": container_secrets,
+            "Hostname": service_name,
+        },
+        "RestartPolicy": {"Condition": "on-failure"},
     }
+
     if cmd:
-        container_config["Command"] = cmd
+        task_template["ContainerSpec"]["Command"] = cmd
+    if placement:
+        task_template["Placement"] = placement
+
     return {
         "name": service_name,
         "labels": labels,
-        "task_template": {
-            "ContainerSpec": container_config,
-            "RestartPolicy": {"Condition": "on-failure"},
-            "Placement": placement,
-        },
+        "task_template": task_template,
         "networks": [network_id],
         **service_kwargs,
     }
@@ -189,7 +192,7 @@ async def start_service(
     cmd: Optional[List[str]],
     labels: Dict[str, str],
     gateway_api_url: str,
-    placement: Dict[str, Any],
+    placement: Optional[Dict[str, Any]] = None,
     **service_kwargs,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     service_parameters = {}

@@ -47,3 +47,8 @@ class AppSettings(BaseSettings):
     )
 
     SC_BOOT_MODE: Optional[BootModeEnum]
+
+    GATEWAY_SERVER_ONE_WORKER_PER_NODE: bool = Field(
+        True,
+        description="Only one dask-worker is allowed per node (default). If disabled, then scaling must be done manually.",
+    )

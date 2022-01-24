@@ -38,6 +38,7 @@ def minimal_config(
         request.param,  # type: ignore
     )
     monkeypatch.setenv("COMPUTATIONAL_SIDECAR_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("GATEWAY_SERVER_ONE_WORKER_PER_NODE", "False")
 
 
 @pytest.fixture
