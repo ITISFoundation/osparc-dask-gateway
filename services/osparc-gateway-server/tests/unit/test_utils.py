@@ -22,8 +22,8 @@ from osparc_gateway_server.backend.utils import (
     create_service_config,
     delete_secrets,
     get_cluster_information,
-    get_empty_node_hostname,
     get_network_id,
+    get_next_empty_node_hostname,
     is_service_task_running,
 )
 from pytest_mock.plugin import MockerFixture
@@ -179,6 +179,7 @@ async def test_create_service_config(
     network_id = faker.uuid4()
     cmd = faker.pystr()
     fake_labels = faker.pydict()
+    fake_placement = {"Constraints": [f"node.hostname=={faker.pystr()}"]}
 
     # create a second one
     secrets = [
@@ -210,6 +211,7 @@ async def test_create_service_config(
         service_secrets=secrets,
         cmd=cmd,
         labels=fake_labels,
+        placement=fake_placement,
     )
     assert service_parameters
     assert service_parameters["name"] == service_name
@@ -233,6 +235,7 @@ async def test_create_service_config(
             service_secret["File"]["Name"]
             == f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / Path(original_secret.secret_file_name).name}"
         )
+    assert service_parameters["task_template"]["Placement"] == fake_placement
 
 
 @pytest.fixture
@@ -351,7 +354,7 @@ async def test_get_empty_node_hostname(
     running_service,
     faker: Faker,
 ):
-    hostname = await get_empty_node_hostname(async_docker_client, fake_cluster)
+    hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
     assert socket.gethostname() == hostname
 
     # only services with the required labels shall be used to find if a service is already on a machine
@@ -367,11 +370,11 @@ async def test_get_empty_node_hostname(
     ]
     await asyncio.gather(*[running_service(labels=l) for l in invalid_labels])
     # if we do not wait for the service to start, then there are no tasks
-    hostname = await get_empty_node_hostname(async_docker_client, fake_cluster)
+    hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
     assert socket.gethostname() == hostname
 
     # now create a service with the required labels
     required_labels = {"cluster_id": fake_cluster.id, "type": "worker"}
     await running_service(labels=required_labels)
     with pytest.raises(NoHostFoundError):
-        await get_empty_node_hostname(async_docker_client, fake_cluster)
+        await get_next_empty_node_hostname(async_docker_client, fake_cluster)

@@ -69,6 +69,7 @@ def create_service_config(
     service_secrets: List[DockerSecret],
     cmd: Optional[List[str]],
     labels: Dict[str, str],
+    placement: Dict[str, Any],
     **service_kwargs,
 ) -> Dict[str, Any]:
     env = deepcopy(service_env)
@@ -128,6 +129,7 @@ def create_service_config(
         "task_template": {
             "ContainerSpec": container_config,
             "RestartPolicy": {"Condition": "on-failure"},
+            "Placement": placement,
         },
         "networks": [network_id],
         **service_kwargs,
@@ -187,6 +189,7 @@ async def start_service(
     cmd: Optional[List[str]],
     labels: Dict[str, str],
     gateway_api_url: str,
+    placement: Dict[str, Any],
     **service_kwargs,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     service_parameters = {}
@@ -217,6 +220,7 @@ async def start_service(
             cluster_secrets,
             cmd,
             labels=labels,
+            placement=placement,
             **service_kwargs,
         )
 
@@ -334,7 +338,9 @@ async def get_cluster_information(docker_client: Docker) -> ClusterInformation:
     return cluster_information
 
 
-async def get_empty_node_hostname(docker_client: Docker, cluster: Cluster) -> Hostname:
+async def get_next_empty_node_hostname(
+    docker_client: Docker, cluster: Cluster
+) -> Hostname:
     cluster_nodes = await docker_client.nodes.list()
     current_worker_services = await docker_client.services.list(
         filters={"label": [f"cluster_id={cluster.id}", "type=worker"]}
