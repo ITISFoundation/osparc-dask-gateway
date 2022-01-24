@@ -4,7 +4,6 @@ from typing import Any, AsyncGenerator, Dict, List, Union
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server._version import __version__
-from dask_gateway_server.backends.base import ClusterConfig
 from dask_gateway_server.backends.db_base import (
     Cluster,
     DBBackendBase,
@@ -24,6 +23,7 @@ from .utils import (
     create_docker_secrets_from_tls_certs_for_cluster,
     delete_secrets,
     get_cluster_information,
+    get_next_empty_node_hostname,
     get_osparc_scheduler_cmd_modifications,
     is_service_task_running,
     modify_cmd_argument,
@@ -98,9 +98,9 @@ class OsparcBackend(DBBackendBase):
         # start the scheduler
         # asyncio.create_task(_background_task(self, cluster))
         async for dask_scheduler_start_result in start_service(
-            self.docker_client,
-            self.settings,
-            self.log,
+            docker_client=self.docker_client,
+            settings=self.settings,
+            logger=self.log,
             service_name=scheduler_service_name,
             base_env=scheduler_env,
             cluster_secrets=[
@@ -109,6 +109,7 @@ class OsparcBackend(DBBackendBase):
             cmd=scheduler_cmd,
             labels={"cluster_id": f"{cluster.id}", "type": "scheduler"},
             gateway_api_url=self.api_url,
+            placement={},
         ):
             yield dask_scheduler_start_result
 
@@ -131,7 +132,9 @@ class OsparcBackend(DBBackendBase):
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("--> starting worker %s", f"{worker=}")
-
+        node_hostname = await get_next_empty_node_hostname(
+            self.docker_client, worker.cluster
+        )
         worker_env = self.get_worker_env(worker.cluster)
         dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_API_PORT}"  #  worker.cluster.scheduler_address
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
@@ -142,12 +145,14 @@ class OsparcBackend(DBBackendBase):
             }
         )
         async for dask_sidecar_start_result in start_service(
-            self.docker_client,
-            self.settings,
-            self.log,
-            f"cluster_{worker.cluster.id}_sidecar_{worker.id}",
-            worker_env,
-            [c for c in self.cluster_secrets if c.cluster.name == worker.cluster.name],
+            docker_client=self.docker_client,
+            settings=self.settings,
+            logger=self.log,
+            service_name=f"cluster_{worker.cluster.id}_sidecar_{worker.id}",
+            base_env=worker_env,
+            cluster_secrets=[
+                c for c in self.cluster_secrets if c.cluster.name == worker.cluster.name
+            ],
             cmd=None,
             labels={
                 "cluster_id": f"{worker.cluster.id}",
@@ -155,6 +160,7 @@ class OsparcBackend(DBBackendBase):
                 "type": "worker",
             },
             gateway_api_url=self.api_url,
+            placement={"Constraints": [f"node.hostname=={node_hostname}"]},
         ):
             yield dask_sidecar_start_result
 
@@ -202,6 +208,9 @@ class OsparcBackend(DBBackendBase):
         return ok
 
     async def on_cluster_heartbeat(self, cluster_name, msg):
+        # pylint: disable=no-else-continue, unused-variable, too-many-branches
+        # pylint: disable=too-many-statements
+
         # HACK: we override the base class heartbeat in order to
         # dynamically allow for more or less workers depending on the
         # available docker nodes!!!
@@ -321,7 +330,7 @@ async def _background_task(backend: OsparcBackend, cluster: Cluster):
         #     "%s", f"{backend.db.get_cluster(cluster.name).config.cluster_max_workers=}"
         # )
         # cluster.config.cluster_max_workers = len(cluster_info)
-        unfrozen_cluster_config = {k: v for k, v in cluster.config.items()}
+        unfrozen_cluster_config = dict(cluster.config.items())
         unfrozen_cluster_config["cluster_max_workers"] = len(cluster_info)
         backend.db.update_cluster(cluster, config=unfrozen_cluster_config)
         # cluster.config.cluster_max_workers = len(cluster_info)
