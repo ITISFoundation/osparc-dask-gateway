@@ -1,4 +1,5 @@
 import asyncio
+from importlib.metadata import version
 from typing import Any, AsyncGenerator, Dict, List, Union
 
 from aiodocker import Docker
@@ -15,7 +16,6 @@ from dask_gateway_server.backends.db_base import (
     timestamp,
 )
 from osparc_gateway_server.remote_debug import setup_remote_debugging
-from packaging.version import Version
 
 from .errors import NoHostFoundError, NoServiceTasksError, TaskNotAssignedError
 from .settings import AppSettings, BootModeEnum
@@ -45,7 +45,7 @@ WELCOME_MSG = r"""
 
 
 """.format(
-    Version
+    version("osparc-dask-gateway")
 )
 
 

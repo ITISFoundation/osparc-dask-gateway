@@ -42,7 +42,7 @@ export DOCKER_REGISTRY  ?= itisfoundation
 get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=1)
 
 # osparc-dask-gateway configuration file
-export OSPARC_GATEWAY_CONFIG = .osparc-dask-gateway-config.py
+export OSPARC_GATEWAY_CONFIG_FILE_HOST = .osparc-dask-gateway-config.py
 
 
 .PHONY: help
@@ -124,7 +124,7 @@ shell:
 SWARM_HOSTS            = $(shell docker node ls --format="{{.Hostname}}" 2>$(if $(IS_WIN),null,/dev/null))
 docker-compose-configs = $(wildcard services/docker-compose*.yml)
 
-$(OSPARC_GATEWAY_CONFIG): services/osparc-gateway-server/config/default_config.py  ## creates .env file from defaults in .env-devel
+$(OSPARC_GATEWAY_CONFIG_FILE_HOST): services/osparc-gateway-server/config/default_config.py  ## creates .env file from defaults in .env-devel
 	$(if $(wildcard $@), \
 	@echo "WARNING #####  $< is newer than $@ ####"; diff -uN $@ $<; false;,\
 	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@)
@@ -180,13 +180,13 @@ show-endpoints:
 	@$(_show_endpoints)
 
 
-up-devel: config .stack-$(SWARM_STACK_NAME)-development.yml .init-swarm ## Deploys local development stack and ops stack (pass 'make ops_disabled=1 up-...' to disable)
+up-devel: .stack-$(SWARM_STACK_NAME)-development.yml .init-swarm config  ## Deploys local development stack and ops stack (pass 'make ops_disabled=1 up-...' to disable)
 	# Deploy stack $(SWARM_STACK_NAME) [back-end]
 	@docker stack deploy --with-registry-auth -c $< $(SWARM_STACK_NAME)
 	@$(MAKE) .deploy-ops
 	@$(_show_endpoints)
 
-up-prod: config .stack-$(SWARM_STACK_NAME)-production.yml .init-swarm ## Deploys local production stack and ops stack (pass 'make ops_disabled=1 up-...' to disable)
+up-prod: .stack-$(SWARM_STACK_NAME)-production.yml .init-swarm config ## Deploys local production stack and ops stack (pass 'make ops_disabled=1 up-...' to disable)
 ifeq ($(target),)
 	# Deploy stack $(SWARM_STACK_NAME)
 	@docker stack deploy --with-registry-auth -c $< $(SWARM_STACK_NAME)
@@ -197,7 +197,7 @@ else
 endif
 	@$(_show_endpoints)
 
-up-version: config .stack-$(SWARM_STACK_NAME)-version.yml .init-swarm ## Deploys versioned stack '$(DOCKER_REGISTRY)/{service}:$(DOCKER_IMAGE_TAG)' and ops stack (pass 'make ops_disabled=1 up-...' to disable)
+up-version: .stack-$(SWARM_STACK_NAME)-version.yml .init-swarm config ## Deploys versioned stack '$(DOCKER_REGISTRY)/{service}:$(DOCKER_IMAGE_TAG)' and ops stack (pass 'make ops_disabled=1 up-...' to disable)
 	# Deploy stack $(SWARM_STACK_NAME)
 	@docker stack deploy --with-registry-auth -c $< $(SWARM_STACK_NAME)
 	@$(MAKE) .deploy-ops
@@ -392,4 +392,4 @@ reset: ## restart docker daemon (LINUX ONLY)
 ## Initial config
 
 .PHONY: config
-config: $(OSPARC_GATEWAY_CONFIG)  ## create configuration file
+config: $(OSPARC_GATEWAY_CONFIG_FILE_HOST)  ## create configuration file
