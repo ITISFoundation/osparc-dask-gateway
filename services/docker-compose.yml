@@ -8,6 +8,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - dask_net
+    configs:
+      - source: gateway_config
+        target: services/osparc-gateway-server/config
     environment:
       - GATEWAY_WORKERS_NETWORK=${SWARM_STACK_NAME:?swarm_stack_name_required}_dask_net
       - GATEWAY_SERVER_NAME=${SWARM_STACK_NAME:?swarm_stack_name_required}_osparc-gateway-server
@@ -24,3 +27,7 @@ networks:
 
 volumes:
   sidecar_data: null
+
+configs:
+  gateway_config:
+    file: ./${OSPARC_GATEWAY_CONFIG}

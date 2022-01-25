@@ -192,3 +192,6 @@ dask*-space/
 
 # Makefile artifacts
 packages/service-integration/compose-spec.json
+
+# dask configuration file
+.*

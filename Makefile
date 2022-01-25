@@ -41,6 +41,9 @@ export DOCKER_REGISTRY  ?= itisfoundation
 
 get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=1)
 
+# osparc-dask-gateway configuration file
+export OSPARC_GATEWAY_CONFIG = .osparc-dask-gateway-config.py
+
 
 .PHONY: help
 help: ## help on rule's targets
@@ -120,6 +123,12 @@ shell:
 #
 SWARM_HOSTS            = $(shell docker node ls --format="{{.Hostname}}" 2>$(if $(IS_WIN),null,/dev/null))
 docker-compose-configs = $(wildcard services/docker-compose*.yml)
+
+$(OSPARC_GATEWAY_CONFIG): services/osparc-gateway-server/config/default_config.py  ## creates .env file from defaults in .env-devel
+	$(if $(wildcard $@), \
+	@echo "WARNING #####  $< is newer than $@ ####"; diff -uN $@ $<; false;,\
+	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@)
+
 
 .stack-$(SWARM_STACK_NAME)-development.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:development' to $@
@@ -378,3 +387,9 @@ clean-all: clean clean-more clean-images clean-hooks # Deep clean including .ven
 .PHONY: reset
 reset: ## restart docker daemon (LINUX ONLY)
 	sudo systemctl restart docker
+
+
+## Initial config
+
+.PHONY: config
+config: $(OSPARC_GATEWAY_CONFIG)  ## create configuration file
