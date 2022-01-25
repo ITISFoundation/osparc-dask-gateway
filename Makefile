@@ -180,13 +180,13 @@ show-endpoints:
 	@$(_show_endpoints)
 
 
-up-devel: .stack-$(SWARM_STACK_NAME)-development.yml .init-swarm ## Deploys local development stack and ops stack (pass 'make ops_disabled=1 up-...' to disable)
+up-devel: config .stack-$(SWARM_STACK_NAME)-development.yml .init-swarm ## Deploys local development stack and ops stack (pass 'make ops_disabled=1 up-...' to disable)
 	# Deploy stack $(SWARM_STACK_NAME) [back-end]
 	@docker stack deploy --with-registry-auth -c $< $(SWARM_STACK_NAME)
 	@$(MAKE) .deploy-ops
 	@$(_show_endpoints)
 
-up-prod: .stack-$(SWARM_STACK_NAME)-production.yml .init-swarm ## Deploys local production stack and ops stack (pass 'make ops_disabled=1 up-...' to disable)
+up-prod: config .stack-$(SWARM_STACK_NAME)-production.yml .init-swarm ## Deploys local production stack and ops stack (pass 'make ops_disabled=1 up-...' to disable)
 ifeq ($(target),)
 	# Deploy stack $(SWARM_STACK_NAME)
 	@docker stack deploy --with-registry-auth -c $< $(SWARM_STACK_NAME)
@@ -197,7 +197,7 @@ else
 endif
 	@$(_show_endpoints)
 
-up-version: .stack-$(SWARM_STACK_NAME)-version.yml .init-swarm ## Deploys versioned stack '$(DOCKER_REGISTRY)/{service}:$(DOCKER_IMAGE_TAG)' and ops stack (pass 'make ops_disabled=1 up-...' to disable)
+up-version: config .stack-$(SWARM_STACK_NAME)-version.yml .init-swarm ## Deploys versioned stack '$(DOCKER_REGISTRY)/{service}:$(DOCKER_IMAGE_TAG)' and ops stack (pass 'make ops_disabled=1 up-...' to disable)
 	# Deploy stack $(SWARM_STACK_NAME)
 	@docker stack deploy --with-registry-auth -c $< $(SWARM_STACK_NAME)
 	@$(MAKE) .deploy-ops
