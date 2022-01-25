@@ -63,7 +63,7 @@ def sidecar_mounts(
 
 
 @pytest.fixture
-async def docker_service(
+async def create_docker_service(
     async_docker_client: aiodocker.Docker,
 ) -> AsyncIterator[Callable[..., Awaitable[Dict[str, Any]]]]:
     services = []
@@ -112,9 +112,9 @@ async def test_computational_sidecar_properly_start_stop(
     image_name: str,
     sidecar_envs: Dict[str, str],
     sidecar_mounts: List[Dict[str, Any]],
-    docker_service: Callable[..., Awaitable[Dict[str, Any]]],
+    create_docker_service: Callable[..., Awaitable[Dict[str, Any]]],
 ):
-    scheduler_service = await docker_service(
+    scheduler_service = await create_docker_service(
         task_template={
             "ContainerSpec": {
                 "Image": image_name,
@@ -129,7 +129,7 @@ async def test_computational_sidecar_properly_start_stop(
     await _wait_for_service_to_be_ready(
         async_docker_client, scheduler_service["Spec"]["Name"]
     )
-    sidecar_service = await docker_service(
+    sidecar_service = await create_docker_service(
         task_template={
             "ContainerSpec": {
                 "Image": image_name,

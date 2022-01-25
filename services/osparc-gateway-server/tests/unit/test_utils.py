@@ -43,7 +43,7 @@ def minimal_config(monkeypatch):
 
 
 @pytest.fixture()
-async def docker_service(
+async def create_docker_service(
     docker_swarm, async_docker_client: aiodocker.Docker, faker: Faker
 ) -> AsyncIterator[Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]]]:
     created_services = []
@@ -71,12 +71,12 @@ async def docker_service(
 
 
 @pytest.fixture
-def running_service(
+def create_running_service(
     async_docker_client: aiodocker.Docker,
-    docker_service: Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]],
+    create_docker_service: Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]],
 ) -> Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]]:
     async def _creator(labels: Dict[str, str]) -> Dict[str, Any]:
-        service = await docker_service(labels)
+        service = await create_docker_service(labels)
         async for attempt in AsyncRetrying(
             reraise=True, wait=wait_fixed(1), stop=stop_after_delay(60)
         ):
@@ -104,10 +104,10 @@ async def test_is_task_running(
     docker_swarm,
     minimal_config,
     async_docker_client: aiodocker.Docker,
-    running_service: Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]],
+    create_running_service: Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]],
     mocked_logger: mock.MagicMock,
 ):
-    service = await running_service({})
+    service = await create_running_service({})
     # this service exists and run
     assert (
         await is_service_task_running(
@@ -351,7 +351,7 @@ async def test_get_empty_node_hostname(
     docker_swarm,
     async_docker_client: aiodocker.Docker,
     fake_cluster: Cluster,
-    running_service,
+    create_running_service,
 ):
     hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
     assert socket.gethostname() == hostname
@@ -367,13 +367,13 @@ async def test_get_empty_node_hostname(
         # only one of the required label
         {"type": "worker"},
     ]
-    await asyncio.gather(*[running_service(labels=l) for l in invalid_labels])
+    await asyncio.gather(*[create_running_service(labels=l) for l in invalid_labels])
     # if we do not wait for the service to start, then there are no tasks
     hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
     assert socket.gethostname() == hostname
 
     # now create a service with the required labels
     required_labels = {"cluster_id": fake_cluster.id, "type": "worker"}
-    await running_service(labels=required_labels)
+    await create_running_service(labels=required_labels)
     with pytest.raises(NoHostFoundError):
         await get_next_empty_node_hostname(async_docker_client, fake_cluster)
