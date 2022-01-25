@@ -1,4 +1,5 @@
-""" Setup remote debugger with Python Tools for Visual Studio (PTVSD)
+""" Setup remote debugger with debugpy - a debugger for Python
+    https://github.com/microsoft/debugpy
 
 """
 import logging
@@ -6,10 +7,8 @@ import logging
 
 def setup_remote_debugging(logger: logging.Logger):
     try:
-        logger.debug("Enabling attach ptvsd ...")
-        #
-        # SEE https://github.com/microsoft/ptvsd#enabling-debugging
-        #
+        logger.debug("Enabling attach debugpy ...")
+
         import debugpy
 
         REMOTE_DEBUGGING_PORT = 3000

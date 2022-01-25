@@ -29,4 +29,3 @@ debugpy
 pylint
 coveralls
 codecov
-ptvsd

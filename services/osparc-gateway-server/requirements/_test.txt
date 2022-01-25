@@ -106,7 +106,7 @@ mccabe==0.6.1
     # via pylint
 msgpack==1.0.3
     # via distributed
-multidict==6.0.1
+multidict==6.0.2
     # via
     #   -c requirements/_base.txt
     #   aiohttp
@@ -127,8 +127,6 @@ pprintpp==0.4.0
     # via pytest-icdiff
 psutil==5.9.0
     # via distributed
-ptvsd==4.3.2
-    # via -r requirements/_test.in
 py==1.11.0
     # via
     #   pytest

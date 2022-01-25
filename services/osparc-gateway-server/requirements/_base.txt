@@ -46,7 +46,7 @@ jinja2==3.0.3
     # via bokeh
 markupsafe==2.0.1
     # via jinja2
-multidict==6.0.1
+multidict==6.0.2
     # via
     #   aiohttp
     #   yarl
