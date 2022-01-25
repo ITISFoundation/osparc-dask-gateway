@@ -179,7 +179,7 @@ async def test_create_service_config(
     network_id = faker.uuid4()
     cmd = faker.pystr()
     fake_labels = faker.pydict()
-    fake_placement = {"Constraints": [f"node.hostname=={faker.pystr()}"]}
+    fake_placement = {"Constraints": [f"node.hostname=={faker.hostname()}"]}
 
     # create a second one
     secrets = [
