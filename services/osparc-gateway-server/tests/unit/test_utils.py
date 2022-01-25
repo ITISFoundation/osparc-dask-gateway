@@ -352,7 +352,6 @@ async def test_get_empty_node_hostname(
     async_docker_client: aiodocker.Docker,
     fake_cluster: Cluster,
     running_service,
-    faker: Faker,
 ):
     hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
     assert socket.gethostname() == hostname
