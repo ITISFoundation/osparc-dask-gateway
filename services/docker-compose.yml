@@ -15,7 +15,10 @@ services:
       - COMPUTATIONAL_SIDECAR_IMAGE=${COMPUTATIONAL_SIDECAR_IMAGE:-local/dask-sidecar:production}
       - COMPUTATIONAL_SIDECAR_LOG_LEVEL=${COMPUTATIONAL_SIDECAR_LOG_LEVEL:-WARNING}
       - GATEWAY_SERVER_ONE_WORKER_PER_NODE=${GATEWAY_SERVER_ONE_WORKER_PER_NODE-True}
-
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 networks:
   dask_net: null
 
