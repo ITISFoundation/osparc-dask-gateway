@@ -1,7 +1,10 @@
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
 
+import asyncio
+import socket
 from copy import deepcopy
+from multiprocessing.sharedctypes import Value
 from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict
 from unittest import mock
@@ -10,6 +13,7 @@ import aiodocker
 import pytest
 from dask_gateway_server.backends.db_base import Cluster, JobStatus
 from faker import Faker
+from osparc_gateway_server.backend.errors import NoHostFoundError, NoServiceTasksError
 from osparc_gateway_server.backend.settings import AppSettings
 from osparc_gateway_server.backend.utils import (
     _DASK_KEY_CERT_PATH_IN_SIDECAR,
@@ -17,7 +21,9 @@ from osparc_gateway_server.backend.utils import (
     create_or_update_secret,
     create_service_config,
     delete_secrets,
+    get_cluster_information,
     get_network_id,
+    get_next_empty_node_hostname,
     is_service_task_running,
 )
 from pytest_mock.plugin import MockerFixture
@@ -36,46 +42,57 @@ def minimal_config(monkeypatch):
     )
 
 
-@pytest.fixture
-async def docker_service(
-    async_docker_client: aiodocker.Docker,
-) -> AsyncIterator[Dict[str, Any]]:
-    TaskTemplate = {
-        "ContainerSpec": {
-            "Image": "redis",
-        },
-    }
-    service = await async_docker_client.services.create(
-        task_template=TaskTemplate, name="my_service"
+@pytest.fixture()
+async def create_docker_service(
+    docker_swarm, async_docker_client: aiodocker.Docker, faker: Faker
+) -> AsyncIterator[Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]]]:
+    created_services = []
+
+    async def _creator(labels: Dict[str, str]) -> Dict[str, Any]:
+        service = await async_docker_client.services.create(
+            task_template={
+                "ContainerSpec": {"Image": "busybox", "Command": ["sleep", "10000"]}
+            },
+            name=faker.pystr(),
+            labels=labels,
+        )
+        assert service
+        created_services.append(service)
+        print(f"--> created docker service {service}")
+        inspected_service = await async_docker_client.services.inspect(service["ID"])
+        print(f"--> service inspected returned {inspected_service}")
+        return inspected_service
+
+    yield _creator
+
+    await asyncio.gather(
+        *[async_docker_client.services.delete(s["ID"]) for s in created_services]
     )
-    assert service
-    print(f"--> created docker service {service}")
-    inspected_service = await async_docker_client.services.inspect(service["ID"])
-    print(f"--> service inspected returned {inspected_service}")
-
-    yield inspected_service
-    # cleanup
-    await async_docker_client.services.delete(service["ID"])
 
 
 @pytest.fixture
-async def running_service(
-    async_docker_client: aiodocker.Docker, docker_service: Dict[str, Any]
-) -> Dict[str, Any]:
-    async for attempt in AsyncRetrying(
-        reraise=True, wait=wait_fixed(1), stop=stop_after_delay(60)
-    ):
-        with attempt:
-            tasks = await async_docker_client.tasks.list(
-                filters={"service": f"{docker_service['Spec']['Name']}"}
-            )
-            task_states = [task["Status"]["State"] for task in tasks]
-            num_running = sum(current == "running" for current in task_states)
-            print(f"--> service task states {task_states=}")
-            assert num_running == 1
-            print(f"--> service {docker_service['Spec']['Name']} is running now")
-            return docker_service
-    raise AssertionError(f"service {docker_service=} could not start")
+def create_running_service(
+    async_docker_client: aiodocker.Docker,
+    create_docker_service: Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]],
+) -> Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]]:
+    async def _creator(labels: Dict[str, str]) -> Dict[str, Any]:
+        service = await create_docker_service(labels)
+        async for attempt in AsyncRetrying(
+            reraise=True, wait=wait_fixed(1), stop=stop_after_delay(60)
+        ):
+            with attempt:
+                tasks = await async_docker_client.tasks.list(
+                    filters={"service": f"{service['Spec']['Name']}"}
+                )
+                task_states = [task["Status"]["State"] for task in tasks]
+                num_running = sum(current == "running" for current in task_states)
+                print(f"--> service task states {task_states=}")
+                assert num_running == 1
+                print(f"--> service {service['Spec']['Name']} is running now")
+                return service
+        raise AssertionError(f"service {service=} could not start")
+
+    return _creator
 
 
 @pytest.fixture
@@ -87,14 +104,14 @@ async def test_is_task_running(
     docker_swarm,
     minimal_config,
     async_docker_client: aiodocker.Docker,
-    running_service: Dict[str, Any],
+    create_running_service: Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]],
     mocked_logger: mock.MagicMock,
 ):
-
+    service = await create_running_service({})
     # this service exists and run
     assert (
         await is_service_task_running(
-            async_docker_client, running_service["Spec"]["Name"], mocked_logger
+            async_docker_client, service["Spec"]["Name"], mocked_logger
         )
         == True
     )
@@ -162,6 +179,7 @@ async def test_create_service_config(
     network_id = faker.uuid4()
     cmd = faker.pystr()
     fake_labels = faker.pydict()
+    fake_placement = {"Constraints": [f"node.hostname=={faker.hostname()}"]}
 
     # create a second one
     secrets = [
@@ -193,6 +211,7 @@ async def test_create_service_config(
         service_secrets=secrets,
         cmd=cmd,
         labels=fake_labels,
+        placement=fake_placement,
     )
     assert service_parameters
     assert service_parameters["name"] == service_name
@@ -216,6 +235,7 @@ async def test_create_service_config(
             service_secret["File"]["Name"]
             == f"{_DASK_KEY_CERT_PATH_IN_SIDECAR / Path(original_secret.secret_file_name).name}"
         )
+    assert service_parameters["task_template"]["Placement"] == fake_placement
 
 
 @pytest.fixture
@@ -313,3 +333,47 @@ async def test_create_or_update_docker_secrets(
         filters={"label": f"cluster_id={fake_cluster.id}"}
     )
     assert len(secrets) == 0
+
+
+async def test_get_cluster_information(
+    docker_swarm,
+    async_docker_client: aiodocker.Docker,
+):
+    cluster_information = await get_cluster_information(async_docker_client)
+    assert cluster_information
+
+    # in testing we do have 1 machine, that is... this very host
+    assert len(cluster_information) == 1
+    assert socket.gethostname() in cluster_information
+
+
+async def test_get_empty_node_hostname(
+    docker_swarm,
+    async_docker_client: aiodocker.Docker,
+    fake_cluster: Cluster,
+    create_running_service,
+):
+    hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
+    assert socket.gethostname() == hostname
+
+    # only services with the required labels shall be used to find if a service is already on a machine
+    invalid_labels = [
+        # no labels
+        {},
+        # only one of the required label
+        {
+            "cluster_id": fake_cluster.id,
+        },
+        # only one of the required label
+        {"type": "worker"},
+    ]
+    await asyncio.gather(*[create_running_service(labels=l) for l in invalid_labels])
+    # if we do not wait for the service to start, then there are no tasks
+    hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
+    assert socket.gethostname() == hostname
+
+    # now create a service with the required labels
+    required_labels = {"cluster_id": fake_cluster.id, "type": "worker"}
+    await create_running_service(labels=required_labels)
+    with pytest.raises(NoHostFoundError):
+        await get_next_empty_node_hostname(async_docker_client, fake_cluster)

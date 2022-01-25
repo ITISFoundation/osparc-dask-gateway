@@ -10,6 +10,8 @@ from aiodocker import Docker
 from dask_gateway_server.backends.db_base import Cluster, DBBackendBase
 from yarl import URL
 
+from .errors import NoHostFoundError, NoServiceTasksError, TaskNotAssignedError
+from .models import ClusterInformation, Hostname
 from .settings import AppSettings
 
 _SHARED_COMPUTATIONAL_FOLDER_IN_SIDECAR = "/home/scu/shared_computational_data"
@@ -39,13 +41,13 @@ async def get_network_id(
     docker_client: Docker, network_name: str, logger: logging.Logger
 ) -> str:
     # try to find the network name (usually named STACKNAME_default)
-    logger.debug("finding network id for network %s", f"{network_name=}")
+    logger.debug("--> finding network id for '%s'", f"{network_name=}")
     networks = [
         x
         for x in (await docker_client.networks.list())
         if "swarm" in x["Scope"] and network_name == x["Name"]
     ]
-    logger.debug(f"found the following swarm networks: {networks=}")
+    logger.debug(f"found the following: {networks=}")
     if not networks:
         raise ValueError(f"network {network_name} not found")
     if len(networks) > 1:
@@ -53,7 +55,7 @@ async def get_network_id(
         raise ValueError(
             f"network {network_name} is ambiguous, too many network founds: {networks=}"
         )
-    logger.debug("found a network %s", f"{networks[0]=}")
+    logger.debug("found '%s'", f"{networks[0]=}")
     assert "Id" in networks[0]  # nosec
     assert isinstance(networks[0]["Id"], str)  # nosec
     return networks[0]["Id"]
@@ -67,6 +69,7 @@ def create_service_config(
     service_secrets: List[DockerSecret],
     cmd: Optional[List[str]],
     labels: Dict[str, str],
+    placement: Optional[Dict[str, Any]],
     **service_kwargs,
 ) -> Dict[str, Any]:
     env = deepcopy(service_env)
@@ -110,23 +113,27 @@ def create_service_config(
         },
     ]
 
-    container_config = {
-        "Env": env,
-        "Image": settings.COMPUTATIONAL_SIDECAR_IMAGE,
-        "Init": True,
-        "Mounts": mounts,
-        "Secrets": container_secrets,
-        "Hostname": service_name,
+    task_template = {
+        "ContainerSpec": {
+            "Env": env,
+            "Image": settings.COMPUTATIONAL_SIDECAR_IMAGE,
+            "Init": True,
+            "Mounts": mounts,
+            "Secrets": container_secrets,
+            "Hostname": service_name,
+        },
+        "RestartPolicy": {"Condition": "on-failure"},
     }
+
     if cmd:
-        container_config["Command"] = cmd
+        task_template["ContainerSpec"]["Command"] = cmd
+    if placement:
+        task_template["Placement"] = placement
+
     return {
         "name": service_name,
         "labels": labels,
-        "task_template": {
-            "ContainerSpec": container_config,
-            "RestartPolicy": {"Condition": "on-failure"},
-        },
+        "task_template": task_template,
         "networks": [network_id],
         **service_kwargs,
     }
@@ -185,6 +192,7 @@ async def start_service(
     cmd: Optional[List[str]],
     labels: Dict[str, str],
     gateway_api_url: str,
+    placement: Optional[Dict[str, Any]] = None,
     **service_kwargs,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     service_parameters = {}
@@ -215,6 +223,7 @@ async def start_service(
             cluster_secrets,
             cmd,
             labels=labels,
+            placement=placement,
             **service_kwargs,
         )
 
@@ -228,7 +237,7 @@ async def start_service(
         # get the full info from docker
         service = await docker_client.services.inspect(service["ID"])
         logger.debug(
-            "Service %s inspection: %s",
+            "Service '%s' inspection: %s",
             service_name,
             f"{json.dumps(service, indent=2)}",
         )
@@ -322,3 +331,44 @@ def modify_cmd_argument(
     except ValueError:
         modified_cmd.extend([argument_name, argument_value])
     return modified_cmd
+
+
+async def get_cluster_information(docker_client: Docker) -> ClusterInformation:
+    cluster_information = ClusterInformation.from_docker(
+        await docker_client.nodes.list()
+    )
+
+    return cluster_information
+
+
+async def get_next_empty_node_hostname(
+    docker_client: Docker, cluster: Cluster
+) -> Hostname:
+    cluster_nodes = await docker_client.nodes.list()
+    current_worker_services = await docker_client.services.list(
+        filters={"label": [f"cluster_id={cluster.id}", "type=worker"]}
+    )
+    used_docker_node_ids = set()
+
+    for service in current_worker_services:
+        service_tasks = await docker_client.tasks.list(
+            filters={"service": service["ID"]}
+        )
+        if not service_tasks:
+            raise NoServiceTasksError(f"service {service} has no tasks attached")
+        for task in service_tasks:
+            if task["Status"]["State"] in ("new", "pending"):
+                raise TaskNotAssignedError(f"task {task} is not assigned to a host yet")
+            if task["Status"]["State"] in (
+                "assigned",
+                "preparing",
+                "starting",
+                "running",
+            ):
+                used_docker_node_ids.add(task["NodeID"])
+
+    for node in cluster_nodes:
+        if node["ID"] in used_docker_node_ids:
+            continue
+        return node["Description"]["Hostname"]
+    raise NoHostFoundError("Could not find any empty host")
