@@ -7,7 +7,7 @@ import logging
 
 def setup_remote_debugging(logger: logging.Logger):
     try:
-        logger.debug("Enabling attach debugpy ...")
+        logger.debug("Attaching debugpy ...")
 
         import debugpy
 

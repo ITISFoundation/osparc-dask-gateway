@@ -77,15 +77,13 @@ class OsparcBackend(DBBackendBase):
     async def do_start_cluster(
         self, cluster: Cluster
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        self.log.debug(f"starting cluster {cluster=}")
+        self.log.debug(f"starting {cluster=}")
         self.cluster_secrets.extend(
             await create_docker_secrets_from_tls_certs_for_cluster(
                 self.docker_client, self, cluster
             )
         )
-        self.log.debug(
-            "created secrets for TLS certification: %s", f"{self.cluster_secrets=}"
-        )
+        self.log.debug("created '%s' for TLS certification", f"{self.cluster_secrets=}")
 
         # now we need a scheduler (get these auto-generated entries from dask-gateway base class)
         scheduler_env = self.get_scheduler_env(cluster)
@@ -113,14 +111,14 @@ class OsparcBackend(DBBackendBase):
             yield dask_scheduler_start_result
 
     async def do_stop_cluster(self, cluster: Cluster):
-        self.log.debug("<-- stopping cluster %s", f"{cluster=}")
+        self.log.debug("--> stopping %s", f"{cluster=}")
         dask_scheduler_service_id = cluster.state.get("service_id")
         await stop_service(self.docker_client, dask_scheduler_service_id, self.log)
         await delete_secrets(self.docker_client, cluster)
-        self.log.debug("cluster %s stopped", f"{cluster=}")
+        self.log.debug("<--%s stopped", f"{cluster=}")
 
     async def do_check_clusters(self, clusters: List[Cluster]):
-        self.log.debug("--> checking clusters statuses: %s", f"{clusters=}")
+        self.log.debug("--> checking statuses of : %s", f"{clusters=}")
         ok = await asyncio.gather(
             *[self._check_service_status(c) for c in clusters], return_exceptions=True
         )
@@ -130,7 +128,7 @@ class OsparcBackend(DBBackendBase):
     async def do_start_worker(
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        self.log.debug("--> starting worker %s", f"{worker=}")
+        self.log.debug("--> starting %s", f"{worker=}")
         node_hostname = await get_next_empty_node_hostname(
             self.docker_client, worker.cluster
         )
@@ -164,9 +162,10 @@ class OsparcBackend(DBBackendBase):
             yield dask_sidecar_start_result
 
     async def do_stop_worker(self, worker: Worker) -> None:
-        self.log.debug("Calling to stop worker %s", f"{worker=}")
+        self.log.debug("--> Stopping %s", f"{worker=}")
         if service_id := worker.state.get("service_id"):
             await stop_service(self.docker_client, service_id, self.log)
+            self.log.debug("<-- %s stopped", f"{worker=}")
         else:
             self.log.error(
                 "Worker %s does not have a service id! That is not expected!",
@@ -176,12 +175,11 @@ class OsparcBackend(DBBackendBase):
     async def _check_service_status(
         self, cluster_service: Union[Worker, Cluster]
     ) -> bool:
-        self.log.debug("checking worker status: %s", f"{cluster_service=}")
+        self.log.debug("--> checking status: %s", f"{cluster_service=}")
         if service_id := cluster_service.state.get("service_id"):
-            self.log.debug("checking service %s status", f"{service_id=}")
+            self.log.debug("--> checking service '%s' status", f"{service_id}")
             try:
                 service = await self.docker_client.services.inspect(service_id)
-                self.log.debug("checking service %s associated", f"{service=}")
                 if service:
                     service_name = service["Spec"]["Name"]
                     return await is_service_task_running(
@@ -189,17 +187,15 @@ class OsparcBackend(DBBackendBase):
                     )
 
             except DockerContainerError:
-                self.log.exception(
-                    "Error while checking container with id %s", f"{service_id=}"
-                )
+                self.log.exception("Error while checking %s", f"{service_id=}")
         self.log.warning(
-            "Worker %s does not have a service id! That is not expected!",
+            "%s does not have a service id! That is not expected!",
             f"{cluster_service=}",
         )
         return False
 
     async def do_check_workers(self, workers: List[Worker]) -> List[bool]:
-        self.log.debug("--> checking workers statuses: %s", f"{workers=}")
+        self.log.debug("--> checking statuses: %s", f"{workers=}")
         ok = await asyncio.gather(
             *[self._check_service_status(w) for w in workers], return_exceptions=True
         )
@@ -319,18 +315,19 @@ class OsparcBackend(DBBackendBase):
         self.db.update_workers([(w, {"close_expected": True}) for w in close_expected])
 
 
-async def _background_task(backend: OsparcBackend, cluster: Cluster):
-    backend.log.info("%s", f"{cluster.options=}")
-    while await asyncio.sleep(2, result=True):
-        backend.log.debug("osparc bck task: getting cluster information")
-        cluster_info = await get_cluster_information(backend.docker_client)
-        backend.log.debug("osparc bck task: %s", f"{cluster_info.json(indent=2)}")
-        backend.config.ClusterConfig.cluster_max_workers = len(cluster_info)
-        # backend.log.debug(
-        #     "%s", f"{backend.db.get_cluster(cluster.name).config.cluster_max_workers=}"
-        # )
-        # cluster.config.cluster_max_workers = len(cluster_info)
-        unfrozen_cluster_config = dict(cluster.config.items())
-        unfrozen_cluster_config["cluster_max_workers"] = len(cluster_info)
-        backend.db.update_cluster(cluster, config=unfrozen_cluster_config)
-        # cluster.config.cluster_max_workers = len(cluster_info)
+# Currently disabled because it seems not possible to change the cluster max_cluster_worker dynamically
+# async def _background_task(backend: OsparcBackend, cluster: Cluster):
+#     backend.log.info("%s", f"{cluster.options=}")
+#     while await asyncio.sleep(2, result=True):
+#         backend.log.debug("osparc bck task: getting cluster information")
+#         cluster_info = await get_cluster_information(backend.docker_client)
+#         backend.log.debug("osparc bck task: %s", f"{cluster_info.json(indent=2)}")
+#         backend.config.ClusterConfig.cluster_max_workers = len(cluster_info)
+#         # backend.log.debug(
+#         #     "%s", f"{backend.db.get_cluster(cluster.name).config.cluster_max_workers=}"
+#         # )
+#         # cluster.config.cluster_max_workers = len(cluster_info)
+#         unfrozen_cluster_config = dict(cluster.config.items())
+#         unfrozen_cluster_config["cluster_max_workers"] = len(cluster_info)
+#         backend.db.update_cluster(cluster, config=unfrozen_cluster_config)
+#         # cluster.config.cluster_max_workers = len(cluster_info)

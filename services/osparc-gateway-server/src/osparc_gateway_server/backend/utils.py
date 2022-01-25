@@ -41,13 +41,13 @@ async def get_network_id(
     docker_client: Docker, network_name: str, logger: logging.Logger
 ) -> str:
     # try to find the network name (usually named STACKNAME_default)
-    logger.debug("finding network id for network %s", f"{network_name=}")
+    logger.debug("--> finding network id for '%s'", f"{network_name=}")
     networks = [
         x
         for x in (await docker_client.networks.list())
         if "swarm" in x["Scope"] and network_name == x["Name"]
     ]
-    logger.debug(f"found the following swarm networks: {networks=}")
+    logger.debug(f"found the following: {networks=}")
     if not networks:
         raise ValueError(f"network {network_name} not found")
     if len(networks) > 1:
@@ -55,7 +55,7 @@ async def get_network_id(
         raise ValueError(
             f"network {network_name} is ambiguous, too many network founds: {networks=}"
         )
-    logger.debug("found a network %s", f"{networks[0]=}")
+    logger.debug("found '%s'", f"{networks[0]=}")
     assert "Id" in networks[0]  # nosec
     assert isinstance(networks[0]["Id"], str)  # nosec
     return networks[0]["Id"]
@@ -237,7 +237,7 @@ async def start_service(
         # get the full info from docker
         service = await docker_client.services.inspect(service["ID"])
         logger.debug(
-            "Service %s inspection: %s",
+            "Service '%s' inspection: %s",
             service_name,
             f"{json.dumps(service, indent=2)}",
         )
