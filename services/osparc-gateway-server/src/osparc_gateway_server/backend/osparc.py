@@ -316,6 +316,7 @@ class OsparcBackend(DBBackendBase):
 
 
 # Currently disabled because it seems not possible to change the cluster max_cluster_worker dynamically
+# TODO: see if a better way is doable
 # async def _background_task(backend: OsparcBackend, cluster: Cluster):
 #     backend.log.info("%s", f"{cluster.options=}")
 #     while await asyncio.sleep(2, result=True):
