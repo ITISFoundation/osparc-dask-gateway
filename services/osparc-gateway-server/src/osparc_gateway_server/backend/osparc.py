@@ -59,8 +59,6 @@ class OsparcBackend(DBBackendBase):
     settings: AppSettings
     docker_client: Docker
     cluster_secrets: List[DockerSecret] = []
-    cluster_start_timeout = 120.0
-    worker_start_timeout = 120.0
 
     async def do_setup(self) -> None:
         self.settings = AppSettings()  # type: ignore
@@ -71,6 +69,9 @@ class OsparcBackend(DBBackendBase):
 
         if self.settings.SC_BOOT_MODE in [BootModeEnum.DEBUG]:
             setup_remote_debugging(logger=self.log)
+
+        self.cluster_start_timeout = self.settings.GATEWAY_CLUSTER_START_TIMEOUT
+        self.worker_start_timeout = self.settings.GATEWAY_WORKER_START_TIMEOUT
         self.docker_client = Docker()
 
         print(WELCOME_MSG, flush=True)
