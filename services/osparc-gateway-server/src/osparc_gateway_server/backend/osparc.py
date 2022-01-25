@@ -4,6 +4,7 @@ from typing import Any, AsyncGenerator, Dict, List, Union
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server._version import __version__
+from dask_gateway_server.backends.base import PublicException
 from dask_gateway_server.backends.db_base import (
     Cluster,
     DBBackendBase,
@@ -16,6 +17,7 @@ from dask_gateway_server.backends.db_base import (
 from osparc_gateway_server.remote_debug import setup_remote_debugging
 from packaging.version import Version
 
+from .errors import NoHostFoundError, NoServiceTasksError, TaskNotAssignedError
 from .settings import AppSettings, BootModeEnum
 from .utils import (
     OSPARC_SCHEDULER_API_PORT,
@@ -129,9 +131,22 @@ class OsparcBackend(DBBackendBase):
         self, worker: Worker
     ) -> AsyncGenerator[Dict[str, Any], None]:
         self.log.debug("--> starting %s", f"{worker=}")
-        node_hostname = await get_next_empty_node_hostname(
-            self.docker_client, worker.cluster
-        )
+        node_hostname = None
+        try:
+            node_hostname = await get_next_empty_node_hostname(
+                self.docker_client, worker.cluster
+            )
+        except (NoServiceTasksError, TaskNotAssignedError) as exc:
+            # this is a real error
+            raise PublicException(f"{exc}") from exc
+        except NoHostFoundError as exc:
+            # this should not happen since calling do_start_worker is done
+            # from the on_cluster_heartbeat that checks if we already reached max worker
+            # What may happen is that a docker node was removed in between and that is an error we can report.
+            raise PublicException(
+                "Unexpected error while creating a new worker, there is no available host! Was a docker node removed?"
+            ) from exc
+        assert node_hostname is not None  # nosec
         worker_env = self.get_worker_env(worker.cluster)
         dask_scheduler_url = f"tls://cluster_{worker.cluster.id}_scheduler:{OSPARC_SCHEDULER_API_PORT}"  #  worker.cluster.scheduler_address
         # NOTE: the name must be set so that the scheduler knows which worker to wait for
