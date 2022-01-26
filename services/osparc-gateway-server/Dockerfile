@@ -69,7 +69,8 @@ RUN  --mount=type=cache,id=build-cache,target=/var/cache/apt,mode=0755,sharing=l
   apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
-  git
+  git \
+  golang-go
 
 
 # NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
@@ -88,7 +89,19 @@ COPY --chown=scu:scu services/osparc-gateway-server/requirements/_base.txt .
 # install base 3rd party dependencies (NOTE: this speeds up devel mode)
 RUN --mount=type=cache,mode=0777,target=/root/.cache/pip \
   pip install \
-  -r _base.txt
+  -r _base.txt \
+  && pip list -v
+
+# in ARM64 mode there is a catch: the piwheels package does not contain the dask-gateway-proxy executable in 64-bit
+RUN dpkgArch="$(dpkg --print-architecture)";\
+  case "$dpkgArch" in \
+  arm64) git clone --depth 1 --branch 0.9.0 https://github.com/dask/dask-gateway.git \
+  && cd dask-gateway/dask-gateway-server \
+  && pip install .\
+  ;; \
+  esac;
+
+
 
 # --------------------------Prod-depends-only stage -------------------
 # This stage is for production only dependencies that get partially wiped out afterwards (final docker image concerns)
