@@ -52,3 +52,10 @@ class AppSettings(BaseSettings):
         True,
         description="Only one dask-worker is allowed per node (default). If disabled, then scaling must be done manually.",
     )
+
+    GATEWAY_CLUSTER_START_TIMEOUT: float = Field(
+        120.0, description="Allowed timeout to define a starting cluster as failed"
+    )
+    GATEWAY_WORKER_START_TIMEOUT: float = Field(
+        120.0, description="Allowed timeout to define a starting worker as failed"
+    )

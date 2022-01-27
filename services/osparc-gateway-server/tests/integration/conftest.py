@@ -4,7 +4,6 @@
 
 import asyncio
 import json
-from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Union
 
 import aiodocker
@@ -56,14 +55,6 @@ def gateway_password(faker: Faker) -> str:
     return faker.password()
 
 
-@pytest.fixture()
-def cluster_directory(tmp_path, faker: Faker) -> Path:
-    cluster_dir = Path(tmp_path / faker.pystr())
-    cluster_dir.mkdir(parents=True, exist_ok=True)
-    assert cluster_dir.exists()
-    return cluster_dir
-
-
 def _convert_to_dict(c: Union[traitlets.config.Config, Dict]) -> Dict[str, Any]:
     converted_dict = {}
     for x, y in c.items():
@@ -97,7 +88,6 @@ async def local_dask_gateway_server(
     mock_scheduler_cmd_modifications,
     minimal_config: None,
     gateway_password: str,
-    cluster_directory: Path,
 ) -> AsyncIterator[DaskGatewayServer]:
     """this code is more or less copy/pasted from dask-gateway repo"""
     c = traitlets.config.Config()

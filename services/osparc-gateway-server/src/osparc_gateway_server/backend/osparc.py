@@ -1,6 +1,8 @@
 import asyncio
+from importlib.metadata import version
 from typing import Any, AsyncGenerator, Dict, List, Union
 
+import osparc_gateway_server
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server._version import __version__
@@ -15,7 +17,6 @@ from dask_gateway_server.backends.db_base import (
     timestamp,
 )
 from osparc_gateway_server.remote_debug import setup_remote_debugging
-from packaging.version import Version
 
 from .errors import NoHostFoundError, NoServiceTasksError, TaskNotAssignedError
 from .settings import AppSettings, BootModeEnum
@@ -45,7 +46,7 @@ WELCOME_MSG = r"""
 
 
 """.format(
-    Version
+    version(osparc_gateway_server.package_name)
 )
 
 
@@ -66,8 +67,12 @@ class OsparcBackend(DBBackendBase):
             "osparc-gateway-server application settings:\n%s",
             self.settings.json(indent=2),
         )
+
         if self.settings.SC_BOOT_MODE in [BootModeEnum.DEBUG]:
             setup_remote_debugging(logger=self.log)
+
+        self.cluster_start_timeout = self.settings.GATEWAY_CLUSTER_START_TIMEOUT
+        self.worker_start_timeout = self.settings.GATEWAY_WORKER_START_TIMEOUT
         self.docker_client = Docker()
 
         print(WELCOME_MSG, flush=True)
