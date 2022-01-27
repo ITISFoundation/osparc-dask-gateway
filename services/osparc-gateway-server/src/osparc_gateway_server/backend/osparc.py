@@ -2,6 +2,7 @@ import asyncio
 from importlib.metadata import version
 from typing import Any, AsyncGenerator, Dict, List, Union
 
+import osparc_gateway_server
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
 from dask_gateway_server._version import __version__
@@ -45,7 +46,7 @@ WELCOME_MSG = r"""
 
 
 """.format(
-    version("osparc-dask-gateway")
+    version(osparc_gateway_server.package_name)
 )
 
 
