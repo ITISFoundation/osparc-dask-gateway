@@ -172,8 +172,9 @@ rows="%-22s | %40s | %12s | %12s\n";\
 TableWidth=100;\
 printf "%22s | %40s | %12s | %12s\n" Name Endpoint User Password;\
 printf "%.$${TableWidth}s\n" "$$separator";\
-printf "$$rows" Portainer 'http://$(get_my_ip):9000' admin adminadmin;\
-printf "$$rows" Dask-Gateway 'http://$(get_my_ip):8000' whatever asdf;
+$(if $(shell docker stack ps ${SWARM_STACK_NAME}-ops 2>/dev/null), \
+printf "$$rows" Portainer 'http://$(get_my_ip):9000' admin adminadmin;,)\
+printf "$$rows" Dask-Gateway 'http://$(get_my_ip):8000' whatever $(filter-out %.password =,$(shell cat $(OSPARC_GATEWAY_CONFIG_FILE_HOST) | grep c.Authenticator.password));
 endef
 
 show-endpoints:
@@ -197,10 +198,9 @@ else
 endif
 	@$(_show_endpoints)
 
-up-version: .stack-$(SWARM_STACK_NAME)-version.yml .init-swarm config ## Deploys versioned stack '$(DOCKER_REGISTRY)/{service}:$(DOCKER_IMAGE_TAG)' and ops stack (pass 'make ops_disabled=1 up-...' to disable)
+up up-version: .stack-$(SWARM_STACK_NAME)-version.yml .init-swarm config ## Deploys versioned stack '$(DOCKER_REGISTRY)/{service}:$(DOCKER_IMAGE_TAG)' and ops stack (pass 'make ops_disabled=1 up-...' to disable)
 	# Deploy stack $(SWARM_STACK_NAME)
 	@docker stack deploy --with-registry-auth -c $< $(SWARM_STACK_NAME)
-	@$(MAKE) .deploy-ops
 	@$(_show_endpoints)
 
 up-latest:
