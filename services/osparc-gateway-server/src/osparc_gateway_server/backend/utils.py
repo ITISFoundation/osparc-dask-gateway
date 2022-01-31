@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from collections import deque
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Final, List, NamedTuple, Optional
@@ -344,7 +345,12 @@ async def get_cluster_information(docker_client: Docker) -> ClusterInformation:
 async def get_next_empty_node_hostname(
     docker_client: Docker, cluster: Cluster
 ) -> Hostname:
-    cluster_nodes = await docker_client.nodes.list()
+    if not hasattr(get_next_empty_node_hostname, "counter"):
+        get_next_empty_node_hostname.counter = 0
+    else:
+        get_next_empty_node_hostname.counter += 1
+
+    cluster_nodes = deque(await docker_client.nodes.list())
     current_worker_services = await docker_client.services.list(
         filters={"label": [f"cluster_id={cluster.id}", "type=worker"]}
     )
@@ -366,7 +372,7 @@ async def get_next_empty_node_hostname(
                 "running",
             ):
                 used_docker_node_ids.add(task["NodeID"])
-
+    cluster_nodes.rotate(get_next_empty_node_hostname.counter)
     for node in cluster_nodes:
         if node["ID"] in used_docker_node_ids:
             continue

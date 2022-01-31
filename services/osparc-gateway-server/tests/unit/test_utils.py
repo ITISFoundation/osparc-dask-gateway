@@ -4,9 +4,8 @@
 import asyncio
 import socket
 from copy import deepcopy
-from multiprocessing.sharedctypes import Value
 from pathlib import Path
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Tuple
 from unittest import mock
 
 import aiodocker
@@ -347,7 +346,50 @@ async def test_get_cluster_information(
     assert socket.gethostname() in cluster_information
 
 
-async def test_get_empty_node_hostname(
+@pytest.fixture()
+def fake_docker_nodes(faker: Faker) -> List[Dict[str, Any]]:
+    return [
+        {"ID": f"{faker.uuid4()}", "Description": {"Hostname": f"{faker.hostname()}"}},
+        {"ID": f"{faker.uuid4()}", "Description": {"Hostname": f"{faker.hostname()}"}},
+        {"ID": f"{faker.uuid4()}", "Description": {"Hostname": f"{faker.hostname()}"}},
+    ]
+
+
+@pytest.fixture()
+def mocked_docker_nodes(mocker: MockerFixture, fake_docker_nodes):
+    mocked_aiodocker_nodes = mocker.patch(
+        "osparc_gateway_server.backend.utils.aiodocker.nodes.DockerSwarmNodes.list",
+        autospec=True,
+        return_value=fake_docker_nodes,
+    )
+
+
+async def test_get_empty_node_hostname_rotates_host_names(
+    fake_docker_nodes: List[Dict[str, Any]],
+    mocked_docker_nodes,
+    docker_swarm,
+    async_docker_client: aiodocker.Docker,
+    fake_cluster: Cluster,
+):
+    available_hostnames = [
+        node["Description"]["Hostname"] for node in fake_docker_nodes
+    ]
+    num_nodes = len(fake_docker_nodes)
+    for n in range(num_nodes):
+        hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
+        assert hostname in available_hostnames
+        available_hostnames.pop(available_hostnames.index(hostname))
+    # let's do it a second time, since it should again go over all the hosts
+    available_hostnames = [
+        node["Description"]["Hostname"] for node in fake_docker_nodes
+    ]
+    for n in range(num_nodes):
+        hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
+        assert hostname in available_hostnames
+        available_hostnames.pop(available_hostnames.index(hostname))
+
+
+async def test_get_empty_node_hostname_correctly_checks_services_labels(
     docker_swarm,
     async_docker_client: aiodocker.Docker,
     fake_cluster: Cluster,
@@ -368,7 +410,7 @@ async def test_get_empty_node_hostname(
         {"type": "worker"},
     ]
     await asyncio.gather(*[create_running_service(labels=l) for l in invalid_labels])
-    # if we do not wait for the service to start, then there are no tasks
+    # these services have not the correct labels, so the host is still available
     hostname = await get_next_empty_node_hostname(async_docker_client, fake_cluster)
     assert socket.gethostname() == hostname
 
