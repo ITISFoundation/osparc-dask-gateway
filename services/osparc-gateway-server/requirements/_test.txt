@@ -27,7 +27,7 @@ attrs==21.4.0
     #   pytest
 certifi==2021.10.8
     # via requests
-charset-normalizer==2.0.10
+charset-normalizer==2.0.11
     # via
     #   -c requirements/_base.txt
     #   aiohttp
@@ -42,14 +42,14 @@ codecov==2.1.12
     # via -r requirements/_test.in
 colorama==0.4.4
     # via pytest-watch
-coverage==6.2
+coverage==6.3
     # via
     #   codecov
     #   coveralls
     #   pytest-cov
 coveralls==3.3.1
     # via -r requirements/_test.in
-dask==2022.1.0
+dask==2022.1.1
     # via
     #   dask-gateway
     #   distributed
@@ -57,7 +57,7 @@ dask-gateway==0.9.0
     # via -r requirements/_test.in
 debugpy==1.5.1
     # via -r requirements/_test.in
-distributed==2022.1.0
+distributed==2022.1.1
     # via dask-gateway
 docker==5.0.3
     # via -r requirements/_test.in
@@ -158,7 +158,7 @@ pytest-forked==1.4.0
     # via pytest-xdist
 pytest-icdiff==0.5
     # via -r requirements/_test.in
-pytest-mock==3.6.1
+pytest-mock==3.7.0
     # via -r requirements/_test.in
 pytest-watch==4.2.0
     # via -r requirements/_test.in
