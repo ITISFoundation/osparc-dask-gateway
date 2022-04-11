@@ -67,7 +67,7 @@ jobs:
           source .venv/bin/activate && \
           pushd services/osparc-gateway-server && \
           make test-ci-unit
-      - uses: codecov/codecov-action@v2.1.0
+      - uses: codecov/codecov-action@v3.0.0
         with:
           flags: unittests #optional
   integration-test:
@@ -106,7 +106,7 @@ jobs:
           source .venv/bin/activate && \
           pushd services/osparc-gateway-server && \
           make test-ci-integration
-      - uses: codecov/codecov-action@v2.1.0
+      - uses: codecov/codecov-action@v3.0.0
         with:
           flags: integrationtests #optional
 
