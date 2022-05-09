@@ -183,7 +183,7 @@ jobs:
       - name: show system version
         run: ./ci/helpers/show_system_versions.bash
       - name: login to docker registry
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         if: github.event_name == 'push'
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
