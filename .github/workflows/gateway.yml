@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: setup python environment
-        uses: actions/setup-python@v3.1.0
+        uses: actions/setup-python@v3.1.2
         with:
           python-version: ${{ matrix.python }}
       - name: show system version
@@ -81,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: setup python environment
-        uses: actions/setup-python@v3.1.0
+        uses: actions/setup-python@v3.1.2
         with:
           python-version: ${{ matrix.python }}
       - name: show system version
@@ -121,7 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: setup python environment
-        uses: actions/setup-python@v3.1.0
+        uses: actions/setup-python@v3.1.2
         with:
           python-version: ${{ matrix.python }}
       - name: show system version
@@ -177,7 +177,7 @@ jobs:
           version: ${{ matrix.docker_buildx }}
           driver: docker-container # a must for multi-arch buildsplatform
       - name: setup python environment
-        uses: actions/setup-python@v3.1.0
+        uses: actions/setup-python@v3.1.2
         with:
           python-version: ${{ matrix.python }}
       - name: show system version
