@@ -1,10 +1,12 @@
 import asyncio
+import json
 from importlib.metadata import version
 from typing import Any, AsyncGenerator, Dict, List, Union
 
 import osparc_gateway_server
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
+from aiohttp import web
 from dask_gateway_server._version import __version__
 from dask_gateway_server.backends.base import PublicException
 from dask_gateway_server.backends.db_base import (
@@ -16,6 +18,7 @@ from dask_gateway_server.backends.db_base import (
     islice,
     timestamp,
 )
+from dask_gateway_server.routes import api_handler, default_routes
 from osparc_gateway_server.remote_debug import setup_remote_debugging
 
 from .errors import NoHostFoundError, NoServiceTasksError, TaskNotAssignedError
@@ -48,6 +51,14 @@ WELCOME_MSG = r"""
 """.format(
     version(osparc_gateway_server.package_name)
 )
+
+
+@default_routes.get("/api/v1/clusters/{cluster_name}/extras")
+@api_handler(user_authenticated=True)
+async def cluster_architecture(request):
+    backend = request.app["backend"]
+    cluster_info = await get_cluster_information(backend.docker_client)
+    return web.json_response(json.loads(cluster_info.json()))
 
 
 class OsparcBackend(DBBackendBase):
