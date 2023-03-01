@@ -16,7 +16,7 @@ def setup_remote_debugging(logger: logging.Logger):
         # debugpy.wait_for_client()
 
     except ImportError as err:
-        raise Exception(
+        raise RuntimeError(
             "Cannot enable remote debugging. Please install debugpy first"
         ) from err
 
