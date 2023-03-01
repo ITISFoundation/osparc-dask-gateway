@@ -77,8 +77,10 @@ pyyaml==6.0
     # via bokeh
 six==1.16.0
     # via python-dateutil
-sqlalchemy==2.0.4
-    # via dask-gateway-server
+sqlalchemy==1.4.46
+    # via
+    #   -c requirements/./constraints.txt
+    #   dask-gateway-server
 tornado==6.2
     # via bokeh
 traitlets==5.9.0
@@ -87,7 +89,6 @@ typing-extensions==4.5.0
     # via
     #   aiodocker
     #   pydantic
-    #   sqlalchemy
 xyzservices==2023.2.0
     # via bokeh
 yarl==1.8.2
