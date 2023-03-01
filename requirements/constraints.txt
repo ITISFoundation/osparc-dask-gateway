@@ -30,7 +30,6 @@ urllib3>=1.26.5                               # https://github.com/advisories/GH
 #
 # Compatibility/coordination
 #
-tomli<2.0.0 # this is a constraint with black 21.12b0
 
 # All backports libraries add environ markers
 # NOTE: If >second dependency, this will annotate a marker in the compiled requirements file
