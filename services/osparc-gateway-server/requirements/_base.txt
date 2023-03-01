@@ -78,7 +78,7 @@ pyyaml==6.0
 six==1.16.0
     # via python-dateutil
 sqlalchemy==2.0.4
-    # via -r requirements/_base.in
+    # via dask-gateway-server
 tornado==6.2
     # via bokeh
 traitlets==5.9.0
