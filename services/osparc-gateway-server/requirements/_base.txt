@@ -91,7 +91,6 @@ six==1.16.0
 sqlalchemy==1.4.46
     # via
     #   -c requirements/../../../requirements/constraints.txt
-    #   -c requirements/./constraints.txt
     #   dask-gateway-server
 tornado==6.2
     # via bokeh
