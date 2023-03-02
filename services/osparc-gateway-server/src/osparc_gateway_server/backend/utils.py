@@ -35,7 +35,7 @@ async def is_service_task_running(
         "%s current service task states are %s", service_name, f"{tasks_current_state=}"
     )
     num_running = sum(current == "running" for current in tasks_current_state)
-    return num_running == 1
+    return bool(num_running == 1)
 
 
 async def get_network_id(
@@ -176,7 +176,7 @@ async def create_or_update_secret(
     )
 
 
-async def delete_secrets(docker_client: aiodocker.Docker, cluster: Cluster):
+async def delete_secrets(docker_client: aiodocker.Docker, cluster: Cluster) -> None:
     secrets = await docker_client.secrets.list(
         filters={"label": f"cluster_id={cluster.id}"}
     )
@@ -376,5 +376,5 @@ async def get_next_empty_node_hostname(
     for node in cluster_nodes:
         if node["ID"] in used_docker_node_ids:
             continue
-        return node["Description"]["Hostname"]
+        return f"{node['Description']['Hostname']}"
     raise NoHostFoundError("Could not find any empty host")

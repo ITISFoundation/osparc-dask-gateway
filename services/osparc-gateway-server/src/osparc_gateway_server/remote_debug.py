@@ -5,7 +5,7 @@
 import logging
 
 
-def setup_remote_debugging(logger: logging.Logger):
+def setup_remote_debugging(logger: logging.Logger) -> None:
     try:
         logger.debug("Attaching debugpy ...")
 

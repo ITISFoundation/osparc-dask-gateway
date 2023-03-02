@@ -61,7 +61,7 @@ class OsparcBackend(DBBackendBase):
     cluster_secrets: list[DockerSecret] = []
 
     async def do_setup(self) -> None:
-        self.settings = AppSettings()  # type: ignore
+        self.settings = AppSettings()
         self.log.info(
             "osparc-gateway-server application settings:\n%s",
             self.settings.json(indent=2),
@@ -116,16 +116,16 @@ class OsparcBackend(DBBackendBase):
         ):
             yield dask_scheduler_start_result
 
-    async def do_stop_cluster(self, cluster: Cluster):
+    async def do_stop_cluster(self, cluster: Cluster) -> None:
         self.log.debug("--> stopping %s", f"{cluster=}")
         dask_scheduler_service_id = cluster.state.get("service_id")
         await stop_service(self.docker_client, dask_scheduler_service_id, self.log)
         await delete_secrets(self.docker_client, cluster)
         self.log.debug("<--%s stopped", f"{cluster=}")
 
-    async def do_check_clusters(self, clusters: list[Cluster]):
+    async def do_check_clusters(self, clusters: list[Cluster]) -> list[bool]:
         self.log.debug("--> checking statuses of : %s", f"{clusters=}")
-        ok = await asyncio.gather(
+        ok: list[bool] = await asyncio.gather(
             *[self._check_service_status(c) for c in clusters], return_exceptions=True
         )
         self.log.debug("<-- clusters status returned: %s", f"{ok=}")
@@ -221,7 +221,7 @@ class OsparcBackend(DBBackendBase):
         self.log.debug("<-- worker status returned: %s", f"{ok=}")
         return ok
 
-    async def on_cluster_heartbeat(self, cluster_name, msg):
+    async def on_cluster_heartbeat(self, cluster_name, msg) -> None:
         # pylint: disable=no-else-continue, unused-variable, too-many-branches
         # pylint: disable=too-many-statements
 

@@ -53,13 +53,15 @@ class DictModel(GenericModel, Generic[DictKey, DictValue]):
     def values(self) -> ValuesView[DictValue]:
         return self.__root__.values()
 
-    def pop(self, key: DictKey):
+    def pop(self, key: DictKey) -> DictValue:
         return self.__root__.pop(key)
 
     def __iter__(self) -> Iterator[DictKey]:
         return self.__root__.__iter__()
 
-    def get(self, key: DictKey, default: Optional[DictValue] = None):
+    def get(
+        self, key: DictKey, default: Optional[DictValue] = None
+    ) -> Optional[DictValue]:
         return self.__root__.get(key, default)
 
     def __len__(self) -> int:

@@ -1,0 +1,8 @@
+mypy
+pydantic[email]
+types-aiofiles
+types-attrs
+types-PyYAML
+types-redis
+types-setuptools
+types-ujson
