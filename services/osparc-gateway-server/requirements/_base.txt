@@ -8,6 +8,7 @@ aiodocker==0.21.0
     # via -r requirements/_base.in
 aiohttp==3.8.4
     # via
+    #   -c requirements/../../../requirements/constraints.txt
     #   aiodocker
     #   dask-gateway-server
 aiosignal==1.3.1
@@ -27,7 +28,9 @@ colorlog==6.7.0
 contourpy==1.0.7
     # via bokeh
 cryptography==39.0.1
-    # via dask-gateway-server
+    # via
+    #   -c requirements/../../../requirements/constraints.txt
+    #   dask-gateway-server
 dask-gateway-server==2023.1.1
     # via -r requirements/_base.in
 dnspython==2.3.0
@@ -45,7 +48,9 @@ idna==3.4
     #   email-validator
     #   yarl
 jinja2==3.1.2
-    # via bokeh
+    # via
+    #   -c requirements/../../../requirements/constraints.txt
+    #   bokeh
 markupsafe==2.1.2
     # via jinja2
 multidict==6.0.4
@@ -63,10 +68,14 @@ pandas==1.5.3
     # via bokeh
 pillow==9.4.0
     # via bokeh
+psycopg2-binary==2.9.5
+    # via sqlalchemy
 pycparser==2.21
     # via cffi
 pydantic==1.10.5
-    # via -r requirements/_base.in
+    # via
+    #   -c requirements/../../../requirements/constraints.txt
+    #   -r requirements/_base.in
 python-dateutil==2.8.2
     # via pandas
 python-dotenv==1.0.0
@@ -74,11 +83,14 @@ python-dotenv==1.0.0
 pytz==2022.7.1
     # via pandas
 pyyaml==6.0
-    # via bokeh
+    # via
+    #   -c requirements/../../../requirements/constraints.txt
+    #   bokeh
 six==1.16.0
     # via python-dateutil
 sqlalchemy==1.4.46
     # via
+    #   -c requirements/../../../requirements/constraints.txt
     #   -c requirements/./constraints.txt
     #   dask-gateway-server
 tornado==6.2

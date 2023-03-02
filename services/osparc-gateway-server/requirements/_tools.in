@@ -1,3 +1,4 @@
+--constraint ./constraints.txt
 --constraint ../../../requirements/constraints.txt
 
 --constraint _base.txt
