@@ -4,7 +4,7 @@
 
 import asyncio
 import json
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Union
+from typing import Any, AsyncIterator, Awaitable, Callable, Union
 
 import aiodocker
 import dask_gateway
@@ -27,10 +27,10 @@ from tenacity.wait import wait_fixed
 @pytest.fixture
 async def docker_volume(
     async_docker_client: aiodocker.Docker,
-) -> AsyncIterator[Callable[[str], Awaitable[Dict[str, Any]]]]:
+) -> AsyncIterator[Callable[[str], Awaitable[dict[str, Any]]]]:
     volumes = []
 
-    async def _volume_creator(name: str) -> Dict[str, Any]:
+    async def _volume_creator(name: str) -> dict[str, Any]:
         volume = await async_docker_client.volumes.create(config={"Name": name})
         assert volume
         print(f"--> created {volume=}")
@@ -55,7 +55,7 @@ def gateway_password(faker: Faker) -> str:
     return faker.password()
 
 
-def _convert_to_dict(c: Union[traitlets.config.Config, Dict]) -> Dict[str, Any]:
+def _convert_to_dict(c: Union[traitlets.config.Config, dict]) -> dict[str, Any]:
     converted_dict = {}
     for x, y in c.items():
         if isinstance(y, (dict, traitlets.config.Config)):

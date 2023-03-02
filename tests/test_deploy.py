@@ -185,7 +185,7 @@ async def test_deployment(
 
         # send some work
         def square(x):
-            return x ** 2
+            return x**2
 
         def neg(x):
             return -x

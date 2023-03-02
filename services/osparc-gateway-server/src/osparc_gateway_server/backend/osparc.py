@@ -1,11 +1,10 @@
 import asyncio
 from importlib.metadata import version
-from typing import Any, AsyncGenerator, Dict, List, Union
+from typing import Any, AsyncGenerator, Union
 
 import osparc_gateway_server
 from aiodocker import Docker
 from aiodocker.exceptions import DockerContainerError
-from dask_gateway_server._version import __version__
 from dask_gateway_server.backends.base import PublicException
 from dask_gateway_server.backends.db_base import (
     Cluster,
@@ -42,7 +41,7 @@ WELCOME_MSG = r"""
 /  _ \/ ___\/  __\/  _ \/  __\/   _\     /  _ \/  _ \/ ___\/ |/ /     /  __//  _ \/__ __\/  __// \  /|/  _ \\  \//     / ___\/  __//  __\/ \ |\/  __//  __\
 | / \||    \|  \/|| / \||  \/||  / _____ | | \|| / \||    \|   /_____ | |  _| / \|  / \  |  \  | |  ||| / \| \  /_____ |    \|  \  |  \/|| | //|  \  |  \/|
 | \_/|\___ ||  __/| |-|||    /|  \_\____\| |_/|| |-||\___ ||   \\____\| |_//| |-||  | |  |  /_ | |/\||| |-|| / / \____\\___ ||  /_ |    /| \// |  /_ |    /
-\____/\____/\_/   \_/ \|\_/\_\\____/     \____/\_/ \|\____/\_|\_\     \____\\_/ \|  \_/  \____\\_/  \|\_/ \|/_/        \____/\____\\_/\_\\__/  \____\\_/\_\ {0}
+\____/\____/\_/   \_/ \|\_/\_\\____/     \____/\_/ \|\____/\_|\_\     \____\\_/ \|  \_/  \____\\_/  \|\_/ \|/_/        \____/\____\\_/\_\\__/  \____\\_/\_\ {}
 
 
 """.format(
@@ -59,7 +58,7 @@ class OsparcBackend(DBBackendBase):
 
     settings: AppSettings
     docker_client: Docker
-    cluster_secrets: List[DockerSecret] = []
+    cluster_secrets: list[DockerSecret] = []
 
     async def do_setup(self) -> None:
         self.settings = AppSettings()  # type: ignore
@@ -83,7 +82,7 @@ class OsparcBackend(DBBackendBase):
 
     async def do_start_cluster(
         self, cluster: Cluster
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         self.log.debug(f"starting {cluster=}")
         self.cluster_secrets.extend(
             await create_docker_secrets_from_tls_certs_for_cluster(
@@ -124,7 +123,7 @@ class OsparcBackend(DBBackendBase):
         await delete_secrets(self.docker_client, cluster)
         self.log.debug("<--%s stopped", f"{cluster=}")
 
-    async def do_check_clusters(self, clusters: List[Cluster]):
+    async def do_check_clusters(self, clusters: list[Cluster]):
         self.log.debug("--> checking statuses of : %s", f"{clusters=}")
         ok = await asyncio.gather(
             *[self._check_service_status(c) for c in clusters], return_exceptions=True
@@ -134,7 +133,7 @@ class OsparcBackend(DBBackendBase):
 
     async def do_start_worker(
         self, worker: Worker
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         self.log.debug("--> starting %s", f"{worker=}")
         node_hostname = None
         try:
@@ -214,7 +213,7 @@ class OsparcBackend(DBBackendBase):
         )
         return False
 
-    async def do_check_workers(self, workers: List[Worker]) -> List[bool]:
+    async def do_check_workers(self, workers: list[Worker]) -> list[bool]:
         self.log.debug("--> checking statuses: %s", f"{workers=}")
         ok = await asyncio.gather(
             *[self._check_service_status(w) for w in workers], return_exceptions=True

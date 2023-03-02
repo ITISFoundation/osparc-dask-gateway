@@ -5,14 +5,14 @@ import asyncio
 import socket
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Tuple
+from typing import Any, AsyncIterator, Awaitable, Callable
 from unittest import mock
 
 import aiodocker
 import pytest
 from dask_gateway_server.backends.db_base import Cluster, JobStatus
 from faker import Faker
-from osparc_gateway_server.backend.errors import NoHostFoundError, NoServiceTasksError
+from osparc_gateway_server.backend.errors import NoHostFoundError
 from osparc_gateway_server.backend.settings import AppSettings
 from osparc_gateway_server.backend.utils import (
     _DASK_KEY_CERT_PATH_IN_SIDECAR,
@@ -44,10 +44,10 @@ def minimal_config(monkeypatch):
 @pytest.fixture()
 async def create_docker_service(
     docker_swarm, async_docker_client: aiodocker.Docker, faker: Faker
-) -> AsyncIterator[Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]]]:
+) -> AsyncIterator[Callable[[dict[str, str]], Awaitable[dict[str, Any]]]]:
     created_services = []
 
-    async def _creator(labels: Dict[str, str]) -> Dict[str, Any]:
+    async def _creator(labels: dict[str, str]) -> dict[str, Any]:
         service = await async_docker_client.services.create(
             task_template={
                 "ContainerSpec": {"Image": "busybox", "Command": ["sleep", "10000"]}
@@ -72,9 +72,9 @@ async def create_docker_service(
 @pytest.fixture
 def create_running_service(
     async_docker_client: aiodocker.Docker,
-    create_docker_service: Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]],
-) -> Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]]:
-    async def _creator(labels: Dict[str, str]) -> Dict[str, Any]:
+    create_docker_service: Callable[[dict[str, str]], Awaitable[dict[str, Any]]],
+) -> Callable[[dict[str, str]], Awaitable[dict[str, Any]]]:
+    async def _creator(labels: dict[str, str]) -> dict[str, Any]:
         service = await create_docker_service(labels)
         async for attempt in AsyncRetrying(
             reraise=True, wait=wait_fixed(1), stop=stop_after_delay(60)
@@ -103,7 +103,7 @@ async def test_is_task_running(
     docker_swarm,
     minimal_config,
     async_docker_client: aiodocker.Docker,
-    create_running_service: Callable[[Dict[str, str]], Awaitable[Dict[str, Any]]],
+    create_running_service: Callable[[dict[str, str]], Awaitable[dict[str, Any]]],
     mocked_logger: mock.MagicMock,
 ):
     service = await create_running_service({})
@@ -125,7 +125,7 @@ async def test_is_task_running(
 async def test_get_network_id(
     docker_swarm,
     async_docker_client: aiodocker.Docker,
-    docker_network: Callable[..., Awaitable[Dict[str, Any]]],
+    docker_network: Callable[..., Awaitable[dict[str, Any]]],
     mocked_logger: mock.MagicMock,
 ):
     # wrong name shall raise
@@ -347,7 +347,7 @@ async def test_get_cluster_information(
 
 
 @pytest.fixture()
-def fake_docker_nodes(faker: Faker) -> List[Dict[str, Any]]:
+def fake_docker_nodes(faker: Faker) -> list[dict[str, Any]]:
     return [
         {"ID": f"{faker.uuid4()}", "Description": {"Hostname": f"{faker.hostname()}"}},
         {"ID": f"{faker.uuid4()}", "Description": {"Hostname": f"{faker.hostname()}"}},
@@ -365,7 +365,7 @@ def mocked_docker_nodes(mocker: MockerFixture, fake_docker_nodes):
 
 
 async def test_get_empty_node_hostname_rotates_host_names(
-    fake_docker_nodes: List[Dict[str, Any]],
+    fake_docker_nodes: list[dict[str, Any]],
     mocked_docker_nodes,
     docker_swarm,
     async_docker_client: aiodocker.Docker,
