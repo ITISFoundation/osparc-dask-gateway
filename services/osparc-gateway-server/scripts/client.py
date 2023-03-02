@@ -21,7 +21,7 @@ client2 = cluster2.get_client()
 
 
 def square(x):
-    return x ** 2
+    return x**2
 
 
 def neg(x):

@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name
 
 import asyncio
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List
+from typing import Any, AsyncIterator, Awaitable, Callable
 
 import aiodocker
 import pytest
@@ -16,8 +16,8 @@ from tenacity.wait import wait_fixed
 @pytest.fixture
 async def sidecar_computational_shared_volume(
     faker: Faker,
-    docker_volume: Callable[[str], Awaitable[Dict[str, Any]]],
-) -> Dict[str, Any]:
+    docker_volume: Callable[[str], Awaitable[dict[str, Any]]],
+) -> dict[str, Any]:
     volume = await docker_volume(faker.pystr())
     return volume
 
@@ -30,8 +30,8 @@ def computational_sidecar_mounted_folder() -> str:
 @pytest.fixture
 def sidecar_envs(
     computational_sidecar_mounted_folder: str,
-    sidecar_computational_shared_volume: Dict[str, Any],
-) -> Dict[str, str]:
+    sidecar_computational_shared_volume: dict[str, Any],
+) -> dict[str, str]:
     envs = {
         "SIDECAR_COMP_SERVICES_SHARED_FOLDER": f"{computational_sidecar_mounted_folder}",
         "SIDECAR_COMP_SERVICES_SHARED_VOLUME_NAME": f"{sidecar_computational_shared_volume['Name']}",
@@ -41,9 +41,9 @@ def sidecar_envs(
 
 @pytest.fixture
 def sidecar_mounts(
-    sidecar_computational_shared_volume: Dict[str, Any],
+    sidecar_computational_shared_volume: dict[str, Any],
     computational_sidecar_mounted_folder: str,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     mounts = [  # docker socket needed to use the docker api
         {
             "Source": "/var/run/docker.sock",
@@ -65,10 +65,10 @@ def sidecar_mounts(
 @pytest.fixture
 async def create_docker_service(
     async_docker_client: aiodocker.Docker,
-) -> AsyncIterator[Callable[..., Awaitable[Dict[str, Any]]]]:
+) -> AsyncIterator[Callable[..., Awaitable[dict[str, Any]]]]:
     services = []
 
-    async def service_creator(**service_kwargs) -> Dict[str, Any]:
+    async def service_creator(**service_kwargs) -> dict[str, Any]:
         service = await async_docker_client.services.create(**service_kwargs)
         assert service
         assert "ID" in service
@@ -107,12 +107,12 @@ async def _wait_for_service_to_be_ready(
 )
 async def test_computational_sidecar_properly_start_stop(
     docker_swarm: None,
-    sidecar_computational_shared_volume: Dict[str, Any],
+    sidecar_computational_shared_volume: dict[str, Any],
     async_docker_client: aiodocker.Docker,
     image_name: str,
-    sidecar_envs: Dict[str, str],
-    sidecar_mounts: List[Dict[str, Any]],
-    create_docker_service: Callable[..., Awaitable[Dict[str, Any]]],
+    sidecar_envs: dict[str, str],
+    sidecar_mounts: list[dict[str, Any]],
+    create_docker_service: Callable[..., Awaitable[dict[str, Any]]],
 ):
     scheduler_service = await create_docker_service(
         task_template={

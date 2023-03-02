@@ -4,7 +4,7 @@
 import asyncio
 import sys
 from pathlib import Path
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict
+from typing import Any, AsyncIterator, Awaitable, Callable
 
 import aiodocker
 import osparc_gateway_server
@@ -73,10 +73,10 @@ async def async_docker_client() -> AsyncIterator[aiodocker.Docker]:
 @pytest.fixture
 async def docker_network(
     async_docker_client: aiodocker.Docker, faker: Faker
-) -> AsyncIterator[Callable[..., Awaitable[Dict[str, Any]]]]:
+) -> AsyncIterator[Callable[..., Awaitable[dict[str, Any]]]]:
     networks = []
 
-    async def _network_creator(**network_config_kwargs) -> Dict[str, Any]:
+    async def _network_creator(**network_config_kwargs) -> dict[str, Any]:
         network = await async_docker_client.networks.create(
             config={"Name": faker.uuid4(), "Driver": "overlay"} | network_config_kwargs
         )

@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict, List
+from typing import Any, Awaitable, Callable
 
 import pytest
 from _dask_helpers import DaskGatewayServer
@@ -44,8 +44,8 @@ def minimal_config(
 @pytest.fixture
 async def gateway_worker_network(
     local_dask_gateway_server: DaskGatewayServer,
-    docker_network: Callable[..., Awaitable[Dict[str, Any]]],
-) -> Dict[str, Any]:
+    docker_network: Callable[..., Awaitable[dict[str, Any]]],
+) -> dict[str, Any]:
     network = await docker_network(
         **{
             "Name": local_dask_gateway_server.server.backend.settings.GATEWAY_WORKERS_NETWORK
@@ -77,7 +77,7 @@ async def assert_services_stability(docker_client: Docker, service_name: str):
         f"--> {service_name} is running, now checking if it is stable during {_SECONDS_STABLE}s..."
     )
 
-    async def _check_stability(service: Dict[str, Any]):
+    async def _check_stability(service: dict[str, Any]):
         inspected_service = await docker_client.services.inspect(service["ID"])
         # we ensure the service remains stable for _SECONDS_STABLE seconds (e.g. only one task runs)
 
@@ -103,7 +103,7 @@ async def _wait_for_cluster_services_and_secrets(
     num_services: int,
     num_secrets: int,
     timeout_s: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     async for attempt in AsyncRetrying(
         reraise=True, wait=wait_fixed(1), stop=stop_after_delay(timeout_s)
     ):
@@ -198,7 +198,7 @@ async def test_clusters_start_stop(
 async def test_cluster_scale(
     minimal_config: None,
     gateway_client: Gateway,
-    gateway_worker_network: Dict[str, Any],
+    gateway_worker_network: dict[str, Any],
     async_docker_client: Docker,
 ):
 

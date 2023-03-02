@@ -1,12 +1,10 @@
 from ipaddress import IPv4Address
 from typing import (
     Any,
-    Dict,
     Generic,
     ItemsView,
     Iterator,
     KeysView,
-    List,
     Optional,
     TypeVar,
     Union,
@@ -24,7 +22,7 @@ ResourceType = Union[int, float]
 class NodeResources(BaseModel):
     memory: ByteSize
     cpus: PositiveFloat
-    others: Dict[ResourceName, ResourceType] = Field(default_factory=dict)
+    others: dict[ResourceName, ResourceType] = Field(default_factory=dict)
 
 
 class NodeInformation(BaseModel):
@@ -38,7 +36,7 @@ DictValue = TypeVar("DictValue")
 
 
 class DictModel(GenericModel, Generic[DictKey, DictValue]):
-    __root__: Dict[DictKey, DictValue]
+    __root__: dict[DictKey, DictValue]
 
     def __getitem__(self, k: DictKey) -> DictValue:
         return self.__root__.__getitem__(k)
@@ -55,13 +53,15 @@ class DictModel(GenericModel, Generic[DictKey, DictValue]):
     def values(self) -> ValuesView[DictValue]:
         return self.__root__.values()
 
-    def pop(self, key: DictKey):
+    def pop(self, key: DictKey) -> DictValue:
         return self.__root__.pop(key)
 
     def __iter__(self) -> Iterator[DictKey]:
         return self.__root__.__iter__()
 
-    def get(self, key: DictKey, default: Optional[DictValue] = None):
+    def get(
+        self, key: DictKey, default: Optional[DictValue] = None
+    ) -> Optional[DictValue]:
         return self.__root__.get(key, default)
 
     def __len__(self) -> int:
@@ -70,7 +70,7 @@ class DictModel(GenericModel, Generic[DictKey, DictValue]):
 
 class ClusterInformation(DictModel[Hostname, NodeInformation]):
     @staticmethod
-    def from_docker(nodes_list: List[Dict[str, Any]]) -> "ClusterInformation":
+    def from_docker(nodes_list: list[dict[str, Any]]) -> "ClusterInformation":
         return ClusterInformation.parse_obj(
             {
                 node["Description"]["Hostname"]: {

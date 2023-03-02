@@ -4,7 +4,7 @@ import logging
 from collections import deque
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, Final, List, NamedTuple, Optional
+from typing import Any, AsyncGenerator, Final, NamedTuple, Optional
 
 import aiodocker
 from aiodocker import Docker
@@ -35,7 +35,7 @@ async def is_service_task_running(
         "%s current service task states are %s", service_name, f"{tasks_current_state=}"
     )
     num_running = sum(current == "running" for current in tasks_current_state)
-    return num_running == 1
+    return bool(num_running == 1)
 
 
 async def get_network_id(
@@ -64,15 +64,15 @@ async def get_network_id(
 
 def create_service_config(
     settings: AppSettings,
-    service_env: Dict[str, Any],
+    service_env: dict[str, Any],
     service_name: str,
     network_id: str,
-    service_secrets: List[DockerSecret],
-    cmd: Optional[List[str]],
-    labels: Dict[str, str],
-    placement: Optional[Dict[str, Any]],
+    service_secrets: list[DockerSecret],
+    cmd: Optional[list[str]],
+    labels: dict[str, str],
+    placement: Optional[dict[str, Any]],
     **service_kwargs,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     env = deepcopy(service_env)
     env.pop("PATH", None)
     # create the secrets array containing the TLS cert/key pair
@@ -176,7 +176,7 @@ async def create_or_update_secret(
     )
 
 
-async def delete_secrets(docker_client: aiodocker.Docker, cluster: Cluster):
+async def delete_secrets(docker_client: aiodocker.Docker, cluster: Cluster) -> None:
     secrets = await docker_client.secrets.list(
         filters={"label": f"cluster_id={cluster.id}"}
     )
@@ -188,14 +188,14 @@ async def start_service(
     settings: AppSettings,
     logger: logging.Logger,
     service_name: str,
-    base_env: Dict[str, str],
-    cluster_secrets: List[DockerSecret],
-    cmd: Optional[List[str]],
-    labels: Dict[str, str],
+    base_env: dict[str, str],
+    cluster_secrets: list[DockerSecret],
+    cmd: Optional[list[str]],
+    labels: dict[str, str],
     gateway_api_url: str,
-    placement: Optional[Dict[str, Any]] = None,
+    placement: Optional[dict[str, Any]] = None,
     **service_kwargs,
-) -> AsyncGenerator[Dict[str, Any], None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     service_parameters = {}
     try:
         assert settings.COMPUTATIONAL_SIDECAR_LOG_LEVEL  # nosec
@@ -287,7 +287,7 @@ async def stop_service(
 
 async def create_docker_secrets_from_tls_certs_for_cluster(
     docker_client: Docker, backend: DBBackendBase, cluster: Cluster
-) -> List[DockerSecret]:
+) -> list[DockerSecret]:
     tls_cert_path, tls_key_path = backend.get_tls_paths(cluster)
     return [
         await create_or_update_secret(
@@ -311,7 +311,7 @@ OSPARC_SCHEDULER_DASHBOARD_PORT: Final[int] = 8787
 
 def get_osparc_scheduler_cmd_modifications(
     scheduler_service_name: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     # NOTE: the healthcheck of itisfoundation/dask-sidecar expects the dashboard
     # to be on port 8787
     # (see https://github.com/ITISFoundation/osparc-simcore/blob/f3d98dccdae665d23701b0db4ee917364a0fbd99/services/dask-sidecar/Dockerfile)
@@ -323,8 +323,8 @@ def get_osparc_scheduler_cmd_modifications(
 
 
 def modify_cmd_argument(
-    cmd: List[str], argument_name: str, argument_value: str
-) -> List[str]:
+    cmd: list[str], argument_name: str, argument_value: str
+) -> list[str]:
     modified_cmd = deepcopy(cmd)
     try:
         dashboard_address_arg_index = modified_cmd.index(argument_name)
@@ -376,5 +376,5 @@ async def get_next_empty_node_hostname(
     for node in cluster_nodes:
         if node["ID"] in used_docker_node_ids:
             continue
-        return node["Description"]["Hostname"]
+        return f"{node['Description']['Hostname']}"
     raise NoHostFoundError("Could not find any empty host")

@@ -18,7 +18,6 @@ class BootModeEnum(str, Enum):
 
 
 class AppSettings(BaseSettings):
-
     COMPUTATIONAL_SIDECAR_IMAGE: str = Field(
         ..., description="The computational sidecar image in use"
     )
@@ -49,13 +48,15 @@ class AppSettings(BaseSettings):
     SC_BOOT_MODE: Optional[BootModeEnum]
 
     GATEWAY_SERVER_ONE_WORKER_PER_NODE: bool = Field(
-        True,
+        default=True,
         description="Only one dask-worker is allowed per node (default). If disabled, then scaling must be done manually.",
     )
 
     GATEWAY_CLUSTER_START_TIMEOUT: float = Field(
-        120.0, description="Allowed timeout to define a starting cluster as failed"
+        default=120.0,
+        description="Allowed timeout to define a starting cluster as failed",
     )
     GATEWAY_WORKER_START_TIMEOUT: float = Field(
-        120.0, description="Allowed timeout to define a starting worker as failed"
+        default=120.0,
+        description="Allowed timeout to define a starting worker as failed",
     )
