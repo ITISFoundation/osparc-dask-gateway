@@ -214,6 +214,7 @@ down: ## Stops and removes stack
 	-@docker stack rm $(SWARM_STACK_NAME)-ops
 	# Removing generated docker compose configurations, i.e. .stack-*
 	-@rm $(wildcard .stack-*)
+	-@rm $(wildcard $(OSPARC_GATEWAY_CONFIG_FILE_HOST))
 
 leave: ## Forces to stop all services, networks, etc by the node leaving the swarm
 	-docker swarm leave -f
