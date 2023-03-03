@@ -129,26 +129,37 @@ $(OSPARC_GATEWAY_CONFIG_FILE_HOST): services/osparc-gateway-server/config/defaul
 	@echo "WARNING #####  $< is newer than $@ ####"; diff -uN $@ $<; false;,\
 	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@)
 
+.PHONY: generate_docker_compose_specs
+define generate_docker_compose_specs
+		echo $1
+    docker-compose --env-file .env \
+        $(foreach file,$1,--file=$(file)) \
+        config \
+        | sed '/published:/s/"//g' \
+        | sed '/name:.*/d' \
+        > $@
+endef
+
 
 .stack-$(SWARM_STACK_NAME)-development.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:development' to $@
 	@export DOCKER_REGISTRY=local \
 	export DOCKER_IMAGE_TAG=development; \
-	docker compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml --file services/docker-compose.devel.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
+	$(call generate_docker_compose_specs,services/docker-compose.yml services/docker-compose.local.yml services/docker-compose.devel.yml)
 
 .stack-$(SWARM_STACK_NAME)-production.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:production' to $@
 	@export DOCKER_REGISTRY=local;       \
 	export DOCKER_IMAGE_TAG=production; \
-	docker compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml config | sed '/published:/s/"//g' | sed '/name:.*/d'> $@
+	$(call generate_docker_compose_specs,services/docker-compose.yml services/docker-compose.local.yml)
 
 .stack-$(SWARM_STACK_NAME)-version.yml: .env $(docker-compose-configs)
 	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
-	@docker compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
+	@$(call generate_docker_compose_specs,services/docker-compose.yml services/docker-compose.local.yml)
 
 .stack-$(SWARM_STACK_NAME)-ops.yml: .env $(docker-compose-configs)
 	# Creating config for ops stack to $@
-	@docker compose --env-file .env --file services/docker-compose-ops.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
+	@$(call generate_docker_compose_specs,services/docker-compose-ops.yml)
 
 
 .PHONY: up-devel up-prod up-version up-latest
