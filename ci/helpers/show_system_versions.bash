@@ -32,7 +32,7 @@ if command -v docker; then
     docker buildx version
 fi
 
-echo "------------------------------ docker-compose -----------------------------------"
-if command -v docker-compose; then
-    docker-compose version
+echo "------------------------------ docker compose -----------------------------------"
+if command -v docker; then
+    docker compose version
 fi
