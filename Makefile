@@ -134,21 +134,21 @@ $(OSPARC_GATEWAY_CONFIG_FILE_HOST): services/osparc-gateway-server/config/defaul
 	# Creating config for stack with 'local/{service}:development' to $@
 	@export DOCKER_REGISTRY=local \
 	export DOCKER_IMAGE_TAG=development; \
-	docker-compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml --file services/docker-compose.devel.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
+	docker compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml --file services/docker-compose.devel.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
 
 .stack-$(SWARM_STACK_NAME)-production.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:production' to $@
 	@export DOCKER_REGISTRY=local;       \
 	export DOCKER_IMAGE_TAG=production; \
-	docker-compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml config | sed '/published:/s/"//g' | sed '/name:.*/d'> $@
+	docker compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml config | sed '/published:/s/"//g' | sed '/name:.*/d'> $@
 
 .stack-$(SWARM_STACK_NAME)-version.yml: .env $(docker-compose-configs)
 	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
-	@docker-compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
+	@docker compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
 
 .stack-$(SWARM_STACK_NAME)-ops.yml: .env $(docker-compose-configs)
 	# Creating config for ops stack to $@
-	@docker-compose --env-file .env --file services/docker-compose-ops.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
+	@docker compose --env-file .env --file services/docker-compose-ops.yml config | sed '/published:/s/"//g' | sed '/name:.*/d' > $@
 
 
 .PHONY: up-devel up-prod up-version up-latest
@@ -194,7 +194,7 @@ ifeq ($(target),)
 	@$(MAKE) .deploy-ops
 else
 	# deploys ONLY $(target) service
-	@docker-compose --file $< up --detach $(target)
+	@docker compose --file $< up --detach $(target)
 endif
 	@$(_show_endpoints)
 
@@ -256,7 +256,7 @@ tag-latest: ## Tags last locally built production images as '${DOCKER_REGISTRY}/
 
 pull-version: .env ## pulls images from DOCKER_REGISTRY tagged as DOCKER_IMAGE_TAG
 	# Pulling images '${DOCKER_REGISTRY}/{service}:${DOCKER_IMAGE_TAG}'
-	@docker-compose --file services/docker-compose-deploy.yml pull
+	@docker compose --file services/docker-compose-deploy.yml pull
 
 
 .PHONY: push-version push-latest
@@ -269,7 +269,7 @@ push-latest: tag-latest
 push-version: tag-version
 	# pushing '${DOCKER_REGISTRY}/{service}:${DOCKER_IMAGE_TAG}'
 	@export BUILD_TARGET=undefined; \
-	docker-compose --file services/docker-compose-build.yml --file services/docker-compose-deploy.yml push
+	docker compose --file services/docker-compose-build.yml --file services/docker-compose-deploy.yml push
 
 ## ENVIRONMENT -------------------------------
 
@@ -318,7 +318,7 @@ info: ## displays setup information
 	@echo ' node          : $(shell node --version 2> /dev/null || echo ERROR nodejs missing)'
 	@echo ' docker        : $(shell docker --version)'
 	@echo ' docker buildx : $(shell docker buildx version)'
-	@echo ' docker-compose: $(shell docker-compose --version)'
+	@echo ' docker-compose: $(shell docker compose --version)'
 
 
 define show-meta
