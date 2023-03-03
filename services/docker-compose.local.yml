@@ -4,7 +4,4 @@ services:
     environment:
       - SC_BOOT_MODE=${SC_BOOT_MODE:-default}
     ports:
-      - mode: ingress
-        target: 3000
-        published: 3100 # ptvsd port
-        protocol: tcp
+      - "3100:3000" # ptvsd port

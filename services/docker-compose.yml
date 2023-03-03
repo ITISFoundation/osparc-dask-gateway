@@ -3,7 +3,7 @@ services:
   osparc-gateway-server:
     image: ${DOCKER_REGISTRY:-itisfoundation}/osparc-gateway-server:${DOCKER_IMAGE_TAG:-latest}
     ports:
-      - 8000
+      - "8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
