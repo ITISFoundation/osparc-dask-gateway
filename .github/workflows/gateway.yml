@@ -30,6 +30,11 @@ env:
   # DOCKER_REGISTRY: must be one of docker.io, ghcr.io, registry.gitlab.com, <registry-name>.azurecr.io, gcr.io, <location>-docker.pkg.dev, <aws-account-number>.dkr.ecr.<region>.amazonaws.com, public.ecr.aws, <region>.ocir.io, quay.io, or custom (not tested)
   DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
 
+concurrency:
+  # ensure only one CI runs at a time
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit-test:
     timeout-minutes: 10
