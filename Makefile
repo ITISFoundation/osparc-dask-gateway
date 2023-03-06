@@ -129,14 +129,15 @@ $(OSPARC_GATEWAY_CONFIG_FILE_HOST): services/osparc-gateway-server/config/defaul
 	@echo "WARNING #####  $< is newer than $@ ####"; diff -uN $@ $<; false;,\
 	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@)
 
-.PHONY: generate_docker_compose_specs
+
+# REFERENCE: https://github.com/docker/compose/issues/9306
 define generate_docker_compose_specs
-		echo $1
     docker-compose --env-file .env \
         $(foreach file,$1,--file=$(file)) \
         config \
         | sed '/published:/s/"//g' \
         | sed '/name:.*/d' \
+				| sed '1 i\version: \"3.8\"' \
         > $@
 endef
 
