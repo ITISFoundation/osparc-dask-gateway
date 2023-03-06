@@ -24,7 +24,8 @@ services:
         constraints:
           - node.role == manager
 networks:
-  dask_net: null
+  dask_net:
+    name: ${SWARM_STACK_NAME:?swarm_stack_name_required}_dask_net
 
 volumes:
   sidecar_data: null
