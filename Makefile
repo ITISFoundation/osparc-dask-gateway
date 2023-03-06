@@ -138,12 +138,12 @@ define generate_docker_compose_specs
     docker --log-level=ERROR compose --env-file .env \
         $(foreach file,$1,--file=$(file)) \
         config \
-        | sed '/published:/s/"//g' \
+				| sed '/published:/s/"//g' \
 				| sed '/size:/s/"//g' \
-        | sed '1 { /name:.*/d ; }' \
+				| sed '1 { /name:.*/d ; }' \
 				| sed '1 i\version: \"3.9\"' \
 				| sed --regexp-extended "s/cpus: ([0-9\\.]+)/cpus: '\\1'/" \
-        2>/dev/null > $@
+				> $@
 endef
 
 
@@ -151,21 +151,32 @@ endef
 	# Creating config for stack with 'local/{service}:development' to $@
 	@export DOCKER_REGISTRY=local \
 	export DOCKER_IMAGE_TAG=development; \
-	$(call generate_docker_compose_specs,services/docker-compose.yml services/docker-compose.local.yml services/docker-compose.devel.yml)
+	$(call generate_docker_compose_specs,\
+		services/docker-compose.yml \
+		services/docker-compose.local.yml \
+		services/docker-compose.devel.yml\
+		)
 
 .stack-$(SWARM_STACK_NAME)-production.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:production' to $@
 	@export DOCKER_REGISTRY=local;       \
 	export DOCKER_IMAGE_TAG=production; \
-	$(call generate_docker_compose_specs,services/docker-compose.yml services/docker-compose.local.yml)
+	$(call generate_docker_compose_specs,\
+		services/docker-compose.yml \
+		services/docker-compose.local.yml\
+		)
 
 .stack-$(SWARM_STACK_NAME)-version.yml: .env $(docker-compose-configs)
 	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
-	@$(call generate_docker_compose_specs,services/docker-compose.yml services/docker-compose.local.yml)
+	@$(call generate_docker_compose_specs,\
+		services/docker-compose.yml \
+		services/docker-compose.local.yml\
+		)
 
 .stack-$(SWARM_STACK_NAME)-ops.yml: .env $(docker-compose-configs)
 	# Creating config for ops stack to $@
-	@$(call generate_docker_compose_specs,services/docker-compose-ops.yml)
+	@$(call generate_docker_compose_specs,\
+		services/docker-compose-ops.yml)
 
 
 .PHONY: up-devel up-prod up-version up-latest
