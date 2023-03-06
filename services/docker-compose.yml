@@ -1,4 +1,4 @@
-version: '3.6' # Don't touch
+version: '3.9'
 services:
   osparc-gateway-server:
     image: ${DOCKER_REGISTRY:-itisfoundation}/osparc-gateway-server:${DOCKER_IMAGE_TAG:-latest}
