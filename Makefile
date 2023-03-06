@@ -306,7 +306,7 @@ push-version: tag-version
 .venv:
 	python3 -m venv $@
 	$@/bin/pip3 --quiet install --upgrade \
-		pip~=21.3 \
+		pip~=23.0 \
 		wheel \
 		setuptools
 
