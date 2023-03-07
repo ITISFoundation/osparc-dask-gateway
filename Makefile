@@ -130,25 +130,53 @@ $(OSPARC_GATEWAY_CONFIG_FILE_HOST): services/osparc-gateway-server/config/defaul
 	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@)
 
 
+# REFERENCE: https://github.com/docker/compose/issues/9306
+# composeV2 defines specifications for docker compose to run
+# they are not 100% compatible with what docker stack deploy command expects
+# some parts have to be modified
+define generate_docker_compose_specs
+    docker --log-level=ERROR compose --env-file .env \
+        $(foreach file,$1,--file=$(file)) \
+        config \
+				| sed '/published:/s/"//g' \
+				| sed '/size:/s/"//g' \
+				| sed '1 { /name:.*/d ; }' \
+				| sed '1 i\version: \"3.9\"' \
+				| sed --regexp-extended "s/cpus: ([0-9\\.]+)/cpus: '\\1'/" \
+				> $@
+endef
+
+
 .stack-$(SWARM_STACK_NAME)-development.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:development' to $@
 	@export DOCKER_REGISTRY=local \
 	export DOCKER_IMAGE_TAG=development; \
-	docker-compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml --file services/docker-compose.devel.yml --log-level=ERROR config > $@
+	$(call generate_docker_compose_specs,\
+		services/docker-compose.yml \
+		services/docker-compose.local.yml \
+		services/docker-compose.devel.yml\
+		)
 
 .stack-$(SWARM_STACK_NAME)-production.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:production' to $@
 	@export DOCKER_REGISTRY=local;       \
 	export DOCKER_IMAGE_TAG=production; \
-	docker-compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml --log-level=ERROR config > $@
+	$(call generate_docker_compose_specs,\
+		services/docker-compose.yml \
+		services/docker-compose.local.yml\
+		)
 
 .stack-$(SWARM_STACK_NAME)-version.yml: .env $(docker-compose-configs)
 	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
-	@docker-compose --env-file .env --file services/docker-compose.yml --file services/docker-compose.local.yml --log-level=ERROR config > $@
+	@$(call generate_docker_compose_specs,\
+		services/docker-compose.yml \
+		services/docker-compose.local.yml\
+		)
 
 .stack-$(SWARM_STACK_NAME)-ops.yml: .env $(docker-compose-configs)
 	# Creating config for ops stack to $@
-	@docker-compose --env-file .env --file services/docker-compose-ops.yml --log-level=ERROR config > $@
+	@$(call generate_docker_compose_specs,\
+		services/docker-compose-ops.yml)
 
 
 .PHONY: up-devel up-prod up-version up-latest
@@ -194,7 +222,7 @@ ifeq ($(target),)
 	@$(MAKE) .deploy-ops
 else
 	# deploys ONLY $(target) service
-	@docker-compose --file $< up --detach $(target)
+	@docker compose --file $< up --detach $(target)
 endif
 	@$(_show_endpoints)
 
@@ -214,6 +242,7 @@ down: ## Stops and removes stack
 	-@docker stack rm $(SWARM_STACK_NAME)-ops
 	# Removing generated docker compose configurations, i.e. .stack-*
 	-@rm $(wildcard .stack-*)
+	-@rm $(wildcard $(OSPARC_GATEWAY_CONFIG_FILE_HOST))
 
 leave: ## Forces to stop all services, networks, etc by the node leaving the swarm
 	-docker swarm leave -f
@@ -255,7 +284,7 @@ tag-latest: ## Tags last locally built production images as '${DOCKER_REGISTRY}/
 
 pull-version: .env ## pulls images from DOCKER_REGISTRY tagged as DOCKER_IMAGE_TAG
 	# Pulling images '${DOCKER_REGISTRY}/{service}:${DOCKER_IMAGE_TAG}'
-	@docker-compose --file services/docker-compose-deploy.yml pull
+	@docker compose --file services/docker-compose-deploy.yml pull
 
 
 .PHONY: push-version push-latest
@@ -268,7 +297,7 @@ push-latest: tag-latest
 push-version: tag-version
 	# pushing '${DOCKER_REGISTRY}/{service}:${DOCKER_IMAGE_TAG}'
 	@export BUILD_TARGET=undefined; \
-	docker-compose --file services/docker-compose-build.yml --file services/docker-compose-deploy.yml push
+	docker compose --file services/docker-compose-build.yml --file services/docker-compose-deploy.yml push
 
 ## ENVIRONMENT -------------------------------
 
@@ -277,7 +306,7 @@ push-version: tag-version
 .venv:
 	python3 -m venv $@
 	$@/bin/pip3 --quiet install --upgrade \
-		pip~=21.3 \
+		pip~=23.0 \
 		wheel \
 		setuptools
 
@@ -317,7 +346,7 @@ info: ## displays setup information
 	@echo ' node          : $(shell node --version 2> /dev/null || echo ERROR nodejs missing)'
 	@echo ' docker        : $(shell docker --version)'
 	@echo ' docker buildx : $(shell docker buildx version)'
-	@echo ' docker-compose: $(shell docker-compose --version)'
+	@echo ' docker-compose: $(shell docker compose --version)'
 
 
 define show-meta

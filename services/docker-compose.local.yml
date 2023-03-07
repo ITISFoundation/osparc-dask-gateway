@@ -4,5 +4,4 @@ services:
     environment:
       - SC_BOOT_MODE=${SC_BOOT_MODE:-default}
     ports:
-      - "8000:8000"
       - "3100:3000" # ptvsd port

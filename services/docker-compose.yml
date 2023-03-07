@@ -1,4 +1,4 @@
-version: '3.6' # Don't touch
+version: '3.9'
 services:
   osparc-gateway-server:
     image: ${DOCKER_REGISTRY:-itisfoundation}/osparc-gateway-server:${DOCKER_IMAGE_TAG:-latest}
@@ -24,7 +24,8 @@ services:
         constraints:
           - node.role == manager
 networks:
-  dask_net: null
+  dask_net:
+    name: ${SWARM_STACK_NAME:?swarm_stack_name_required}_dask_net
 
 volumes:
   sidecar_data: null

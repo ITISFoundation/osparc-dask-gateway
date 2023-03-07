@@ -21,13 +21,13 @@ bokeh==3.0.3
     # via -r requirements/_base.in
 cffi==1.15.1
     # via cryptography
-charset-normalizer==3.0.1
+charset-normalizer==3.1.0
     # via aiohttp
 colorlog==6.7.0
     # via dask-gateway-server
 contourpy==1.0.7
     # via bokeh
-cryptography==39.0.1
+cryptography==39.0.2
     # via
     #   -c requirements/../../../requirements/constraints.txt
     #   dask-gateway-server

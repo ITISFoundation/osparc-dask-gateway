@@ -39,7 +39,7 @@ The oSparc connects to that gateway and starts a Dask cluster made of a *itisfou
    git clone https://github.com/ITISFoundation/osparc-dask-gateway.git
    cd osparc-dask-gateway
    make up
-   # this should output the address and passwor on how to connect with the gateway
+   # this should output the address and password on how to connect with the gateway
    ```
 
 ## Testing the gateway
