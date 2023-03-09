@@ -39,22 +39,22 @@ if docker compose version --short | grep --quiet "^2\." ; then
   fi
 
   docker_command="\
-  docker \
-  --log-level=ERROR \
-  compose \
-  --env-file .env"
+docker \
+--log-level=ERROR \
+compose \
+--env-file .env"
 
   for compose_file_path in "$@"
   do
     docker_command+=" --file=${compose_file_path}"
   done
   docker_command+="\
-  config \
-  | sed '/published:/s/\"//g' \
-  | sed '/size:/s/\"//g' \
-  | sed '1 { /name:.*/d ; }' \
-  | sed '1 i\version: \"${version}\"' \
-  | sed --regexp-extended 's/cpus: ([0-9\\.]+)/cpus: \"\\1\"/'"
+config \
+| sed '/published:/s/\"//g' \
+| sed '/size:/s/\"//g' \
+| sed '1 { /name:.*/d ; }' \
+| sed '1 i\version: \"${version}\"' \
+| sed --regexp-extended 's/cpus: ([0-9\\.]+)/cpus: \"\\1\"/'"
 
   # Execute the command
   show_info "Executing Docker command: ${docker_command}"
