@@ -108,7 +108,7 @@ async def dask_gateway_stack_deployed_services(
     stdout, stderr = await process.communicate()
     assert (
         process.returncode == 0
-    ), f"Unexpected error while deploying stack:\n{stderr.decode()}"
+    ), f"Unexpected error while deploying stack:\nstdout:{stdout.decode()}\n\nstderr:{stderr.decode()}"
     print(f"{stdout}")
     print("--> osparc-dask-gateway stack deployed.")
     healtcheck_endpoint = f"{dask_gateway_entrypoint}/api/health"
@@ -139,7 +139,7 @@ async def dask_gateway_stack_deployed_services(
     stdout, stderr = await process.communicate()
     assert (
         process.returncode == 0
-    ), f"Unexpected error while deploying stack:\n{stderr.decode()}"
+    ), f"Unexpected error while deploying stack:\nstdout:{stdout.decode()}\n\n{stderr.decode()}"
     print(f"{stdout}")
     print("<-- osparc-dask-gateway stack stopped.")
 
