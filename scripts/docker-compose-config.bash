@@ -30,6 +30,7 @@ fi
 
 # check if docker-compose V2 is available
 if docker compose version --short | grep --quiet "^2\." ; then
+  show_info "Running compose V2"
   # V2 does not write the version anymore, so we take it from the first compose file
   first_compose_file="${1}"
   version=$(grep --max-count=1 "^version:" "${first_compose_file}" | cut --delimiter=' ' --fields=2)
@@ -61,6 +62,7 @@ if docker compose version --short | grep --quiet "^2\." ; then
 else
   show_warning "docker compose V2 is not available, trying V1 instead... please update your docker engine."
   if docker-compose version --short | grep --quiet "^1\." ; then
+    show_info "Running compose V1"
     docker_command="\
 docker-compose \
 --log-level=ERROR \
@@ -71,9 +73,6 @@ docker-compose \
     done
     docker_command+="\
 config \
-| sed '/published:/s/\"//g' \
-| sed '/size:/s/\"//g' \
-| sed '1 { /name:.*/d ; }' \
 | sed --regexp-extended 's/cpus: ([0-9\\.]+)/cpus: \"\\1\"/'"
     # Execute the command
     show_info "Executing Docker command: ${docker_command}"
