@@ -36,9 +36,8 @@ click==8.1.3
     #   dask
     #   dask-gateway
     #   distributed
-cloudpickle==2.0.0
+cloudpickle==2.2.1
     # via
-    #   -c requirements/../../../requirements/constraints.txt
     #   dask
     #   distributed
 codecov==2.1.12
