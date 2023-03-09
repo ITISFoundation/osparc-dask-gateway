@@ -33,7 +33,7 @@ if docker compose version --short | grep --quiet "^2\." ; then
   show_info "Running compose V2"
   # V2 does not write the version anymore, so we take it from the first compose file
   first_compose_file="${1}"
-  version=$(grep --max-count=1 "^version:" "${first_compose_file}" | cut --delimiter=' ' --fields=2)
+  version=$(grep --max-count=1 "^version:" "${first_compose_file}" | cut --delimiter=' ' --fields=2 | tr --delete \"\')
   if [[ -z "$version" ]]; then
     version="3.9"  # Default to 3.9 if version is not found in file
   fi
@@ -49,11 +49,11 @@ compose \
     docker_command+=" --file=${compose_file_path}"
   done
   docker_command+="\
-config \
+ config \
 | sed '/published:/s/\"//g' \
 | sed '/size:/s/\"//g' \
 | sed '1 { /name:.*/d ; }' \
-| sed '1 i\version: \"${version}\"' \
+| sed '1 i version: \"${version}\"' \
 | sed --regexp-extended 's/cpus: ([0-9\\.]+)/cpus: \"\\1\"/'"
 
   # Execute the command
