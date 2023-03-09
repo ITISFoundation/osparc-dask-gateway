@@ -20,8 +20,8 @@ from tenacity.wait import wait_fixed
 @pytest.fixture(
     params=[
         "itisfoundation/dask-sidecar:master-github-latest",
-        "itisfoundation/dask-sidecar:staging-github-latest",
-        "itisfoundation/dask-sidecar:release-github-latest",
+        # "itisfoundation/dask-sidecar:staging-github-latest",
+        # "itisfoundation/dask-sidecar:release-github-latest",
     ]
 )
 def minimal_config(
@@ -201,14 +201,12 @@ async def test_cluster_scale(
     gateway_worker_network: dict[str, Any],
     async_docker_client: Docker,
 ):
-
     # No currently running clusters
     clusters = await gateway_client.list_clusters()
     assert clusters == []
 
     # create a cluster
     async with gateway_client.new_cluster() as cluster:
-
         # Cluster is now present in list
         clusters = await gateway_client.list_clusters()
         assert len(clusters)

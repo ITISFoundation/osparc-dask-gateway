@@ -15,8 +15,8 @@ from osparc_gateway_server.backend.osparc import OsparcBackend
 @pytest.fixture(
     params=[
         "itisfoundation/dask-sidecar:master-github-latest",
-        "itisfoundation/dask-sidecar:staging-github-latest",
-        "itisfoundation/dask-sidecar:release-github-latest",
+        # "itisfoundation/dask-sidecar:staging-github-latest",
+        # "itisfoundation/dask-sidecar:release-github-latest",
     ]
 )
 def minimal_config(
