@@ -106,7 +106,9 @@ async def dask_gateway_stack_deployed_services(
         cwd=osparc_gateway_server_root_dir,
     )
     stdout, stderr = await process.communicate()
-    assert process.returncode == 0, f"Unexpected error while deploying stack:\n{stderr}"
+    assert (
+        process.returncode == 0
+    ), f"Unexpected error while deploying stack:\n{stderr.decode()}"
     print(f"{stdout}")
     print("--> osparc-dask-gateway stack deployed.")
     healtcheck_endpoint = f"{dask_gateway_entrypoint}/api/health"
@@ -135,7 +137,9 @@ async def dask_gateway_stack_deployed_services(
         cwd=osparc_gateway_server_root_dir,
     )
     stdout, stderr = await process.communicate()
-    assert process.returncode == 0, f"Unexpected error while deploying stack:\n{stderr}"
+    assert (
+        process.returncode == 0
+    ), f"Unexpected error while deploying stack:\n{stderr.decode()}"
     print(f"{stdout}")
     print("<-- osparc-dask-gateway stack stopped.")
 
@@ -191,7 +195,6 @@ async def test_deployment(
             return -x
 
         with cluster.get_client() as client:
-
             square_of_2 = client.submit(square, 2)
             assert square_of_2.result(timeout=10) == 4
             assert not square_of_2.exception(timeout=10)
