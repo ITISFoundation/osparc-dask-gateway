@@ -20,8 +20,6 @@ from tenacity.wait import wait_fixed
 @pytest.fixture(
     params=[
         "itisfoundation/dask-sidecar:master-github-latest",
-        # "itisfoundation/dask-sidecar:staging-github-latest",
-        # "itisfoundation/dask-sidecar:release-github-latest",
     ]
 )
 def minimal_config(
