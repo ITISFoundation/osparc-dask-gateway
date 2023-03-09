@@ -2,6 +2,5 @@
 --constraint ../../../requirements/constraints.txt
 
 aiodocker
-bokeh
 dask-gateway-server[local]
 pydantic[email,dotenv]
