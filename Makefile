@@ -135,15 +135,7 @@ $(OSPARC_GATEWAY_CONFIG_FILE_HOST): services/osparc-gateway-server/config/defaul
 # they are not 100% compatible with what docker stack deploy command expects
 # some parts have to be modified
 define generate_docker_compose_specs
-    docker --log-level=ERROR compose --env-file .env \
-        $(foreach file,$1,--file=$(file)) \
-        config \
-				| sed '/published:/s/"//g' \
-				| sed '/size:/s/"//g' \
-				| sed '1 { /name:.*/d ; }' \
-				| sed '1 i\version: \"3.9\"' \
-				| sed --regexp-extended "s/cpus: ([0-9\\.]+)/cpus: '\\1'/" \
-				> $@
+	./scripts/docker-compose-config.bash $1 > $@
 endef
 
 
